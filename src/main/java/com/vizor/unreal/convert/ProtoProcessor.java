@@ -382,6 +382,11 @@ class ProtoProcessor implements Runnable
 
         for (final OneOfElement oe : me.oneOfs())
         {
+            if (provider != ueProvider)
+            {
+                continue;
+            }
+
             final CppType oneOfType = provider.get(oe.name());
             
             final CppField field = new CppField(oneOfType, oe.name());

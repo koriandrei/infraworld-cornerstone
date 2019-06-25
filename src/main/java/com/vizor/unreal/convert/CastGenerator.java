@@ -109,7 +109,7 @@ class CastGenerator
         if (generateCastComments)
             body.append(lineSeparator());
 
-        for (int i = 0; i < cppFields.size(); i++)
+        for (int i = 0; i < cppFields.size() && i<ueFields.size(); i++)
         {
             final CppField firstField = cppFields.get(i);
             final CppField secondField = ueFields.get(i);

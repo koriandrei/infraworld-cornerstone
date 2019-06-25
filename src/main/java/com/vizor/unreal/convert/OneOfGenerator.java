@@ -12,6 +12,7 @@ import com.vizor.unreal.tree.CppFunction;
 import com.vizor.unreal.tree.CppStruct;
 import com.vizor.unreal.tree.CppType;
 import com.vizor.unreal.tree.CppType.Kind;
+import com.vizor.unreal.tree.CppType.Passage;
 import com.vizor.unreal.util.Tuple;
 
 class OneOfGenerator 
@@ -67,6 +68,36 @@ class OneOfGenerator
         return templatedGetOneOf;
     }
 
+    private static CppFunction generateCreateFunction(final CppType oneOfType, final CppEnum caseEnumType, final int CaseEnumValue, final CppType typeToGenerateFor)
+    {
+        List<CppArgument> arguments = new ArrayList<>();
+
+        arguments.add(
+            new CppArgument(
+                typeToGenerateFor.makeConstant(Passage.ByRef), 
+                "OneOfValue"
+            )
+        );
+
+        CppFunction createFunction = new CppFunction(
+            "Create"+typeToGenerateFor.getName(), 
+            oneOfType, 
+            arguments
+        );
+
+        createFunction.isStatic = true;
+
+        createFunction.setBody(
+            String.join(System.lineSeparator()
+                , oneOfType.getName() + " OneOf;"
+                , "OneOf.Set(OneOfValue);"
+                , "return OneOf;"
+            )
+        );
+
+        return createFunction;
+    }
+
     private static CppClass generateOneOfImpl(final OneOfTemp oneOfDeclaration)
     {
         CppType type = CppType.plain(oneOfDeclaration.ueMessage.getType().getName() + "_access", Kind.Class);
@@ -78,6 +109,18 @@ class OneOfGenerator
         final List<CppFunction> methods = new ArrayList<>();
 
         methods.add(generateTryGet());
+
+        methods.addAll(
+        oneOfDeclaration.oneOfGeneratedStruct.getFields().stream().map(
+            (final CppField field) -> {
+                return generateCreateFunction(
+                    oneOfDeclaration.oneOfGeneratedStruct.getType(),
+                    oneOfDeclaration.oneOfGeneratedCaseEnum, 
+                    1,
+                    field.getType()
+                    );
+            }
+        ).collect(Collectors.toList()));
 
         return new CppClass(type, null, fields, methods);
     }
