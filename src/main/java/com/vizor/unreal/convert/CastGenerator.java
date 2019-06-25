@@ -133,6 +133,16 @@ class CastGenerator
             body.append(lineSeparator());
         }
 
+        if (ueFields.size() > cppFields.size())
+        {
+            for (int oneOfPropertyIndex = 0; oneOfPropertyIndex < ueFields.size() - cppFields.size(); oneOfPropertyIndex++)
+            {
+                final CppField ueOneofProperty = ueFields.get(cppFields.size() + oneOfPropertyIndex);
+
+                body.append("TOneOfHelpers::SaveToProto(").append(inputItemName).append(ueOneofProperty.getName()).append(", ").append(outputItemName).append(");").append(lineSeparator());
+            }
+        }
+
         body.append("return ").append(outputItemName).append(';');
 
         final CastMethod castMethod = getCastMethod(inType);
