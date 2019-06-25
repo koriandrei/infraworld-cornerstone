@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.vizor.unreal.tree.CppArgument;
 import com.vizor.unreal.tree.CppClass;
 import com.vizor.unreal.tree.CppEnum;
 import com.vizor.unreal.tree.CppField;
@@ -39,6 +40,33 @@ class OneOfGenerator
         ).collect(Collectors.toList());
 	}
 
+    private static CppFunction generateTryGet()
+    {
+        final CppType templateType = CppType.plain("T", Kind.Wildcard);
+
+        final List<CppType> templateArgs = new ArrayList<>();
+        templateArgs.add(templateType);
+        
+        final CppArgument outValueArgument = new CppArgument(
+            templateType.makeRef(), "OutValue");
+
+        final List<CppArgument> arguments = new ArrayList<>();
+        arguments.add(outValueArgument);
+        
+        final CppFunction templatedGetOneOf = new CppFunction(
+            "TryGetValue", 
+            CppType.plain("bool", Kind.Primitive), 
+            new ArrayList<>(), 
+            templateArgs
+            );
+        
+        templatedGetOneOf.setBody("return false;");
+
+        templatedGetOneOf.enableAnnotations(false);
+
+        return templatedGetOneOf;
+    }
+
     private static CppClass generateOneOfImpl(final OneOfTemp oneOfDeclaration)
     {
         CppType type = CppType.plain(oneOfDeclaration.ueMessage.getType().getName() + "_access", Kind.Class);
@@ -49,15 +77,7 @@ class OneOfGenerator
 
         final List<CppFunction> methods = new ArrayList<>();
 
-        final List<CppType> templateArgs = new ArrayList<>();
-        templateArgs.add(CppType.plain("T", Kind.Wildcard));
-        final CppFunction templatedGetOneOf = new CppFunction("TryGetValue", CppType.plain("T", Kind.Wildcard), new ArrayList<>(), templateArgs);
-        
-        templatedGetOneOf.setBody("return T();");
-
-        templatedGetOneOf.enableAnnotations(false);
-
-        methods.add(templatedGetOneOf);
+        methods.add(generateTryGet());
 
         return new CppClass(type, null, fields, methods);
     }
