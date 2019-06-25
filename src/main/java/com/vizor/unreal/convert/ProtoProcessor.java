@@ -47,6 +47,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -306,8 +307,7 @@ class ProtoProcessor implements Runnable
         }
     }
 
-    private Tuple<CppStruct, CppEnum> extractOneOf(final TypesProvider provider, final OneOfElement oe) 
-    {
+    private Tuple<CppStruct, CppEnum> extractOneOf(final TypesProvider provider, final OneOfElement oe) {
         final CppType oneOfType = provider.get(oe.name());
 
         final List<CppAnnotation> fieldAnnotations = new ArrayList<>();
@@ -317,8 +317,7 @@ class ProtoProcessor implements Runnable
 
         final List<CppField> fields = new ArrayList<>();
 
-        for (final FieldElement fe : oe.fields())
-        {
+        for (final FieldElement fe : oe.fields()) {
             final CppType fieldUeType = provider.get(fe.type());
 
             final CppField ueField = new CppField(fieldUeType, fe.name());
@@ -328,16 +327,25 @@ class ProtoProcessor implements Runnable
             fields.add(ueField);
         }
 
-        final CppStruct oneOfStruct = new CppStruct(oneOfType, fields);
+        CppEnum oneOfCaseEnum = new CppEnum(CppType.plain(oe.name() + "case", Enum), oe.fields().stream()
+                .collect(Collectors.toMap((FieldElement fe) -> fe.name(), (FieldElement fe) -> fe.tag())));
 
-        CppEnum oneOfCaseEnum = new CppEnum(
-            CppType.plain(oe.name() + "case", Enum), 
-            oe.fields().stream().collect(
-                Collectors.toMap(
-                    (FieldElement fe) -> fe.name(), 
-                    (FieldElement fe) -> fe.tag()
+        final CppClass oneOfStruct = new CppClass(
+            oneOfType, 
+            CppType.wildcardGeneric("TAnyOf", Kind.Struct, fields.size()).makeGeneric(
+                oe.fields().stream().map((fe)->{
+                    return CppType.wildcardGeneric("TTypeIntegerPair", Kind.Struct, 2).makeGeneric(
+                        fields.get(oe.fields().indexOf(fe)).getType(), 
+
+                        // TODO: This must be an int template argument,
+                        // and not a type of int. Its value should be
+                        // fe.tag()
+                        CppType.plain("int", Kind.Primitive)); // fe.tag()
+                }).collect(Collectors.toList())
                 )
-            )
+            ,
+            Arrays.asList(new CppField(oneOfCaseEnum.getType(), "OneOfCase")), 
+            new ArrayList<>()
         );
 
         return of(oneOfStruct, oneOfCaseEnum);
