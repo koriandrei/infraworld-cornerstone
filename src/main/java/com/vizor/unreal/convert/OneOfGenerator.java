@@ -22,10 +22,10 @@ class OneOfGenerator
 
     class OneOfTemp
     {
-        public OneOfTemp(CppStruct first, CppStruct second, final Tuple<CppStruct, CppEnum>... oneOfGeneratedStructs) {
+        public OneOfTemp(CppStruct first, CppStruct second, List<Tuple<CppStruct, CppEnum>> oneOfGeneratedStructs) {
             protoMessage = first;
             ueMessage = second;
-            this.oneOfGeneratedStructs = Arrays.asList(oneOfGeneratedStructs);
+            this.oneOfGeneratedStructs = oneOfGeneratedStructs;
         }
 
         CppStruct ueMessage;
@@ -37,7 +37,7 @@ class OneOfGenerator
 
 	public OneOfGenerator(List<Tuple<Tuple<CppStruct, CppStruct>, Tuple<CppStruct, CppEnum>>> oneOfs) {
         this.oneOfs = oneOfs.stream().map((Tuple<Tuple<CppStruct, CppStruct>, Tuple<CppStruct, CppEnum>> tuple)->
-            new OneOfTemp(tuple.first().first(), tuple.first().second(), tuple.second())
+            new OneOfTemp(tuple.first().first(), tuple.first().second(), Arrays.asList(tuple.second()))
         ).collect(Collectors.toList());
 	}
 
@@ -80,7 +80,7 @@ class OneOfGenerator
         );
 
         CppFunction createFunction = new CppFunction(
-            "Create"+typeToGenerateFor.getName(), 
+            "Create"+oneOfType.getName()+"From"+typeToGenerateFor.getName(), 
             oneOfType, 
             arguments
         );
@@ -147,16 +147,18 @@ class OneOfGenerator
 
         methods.addAll(
             oneOfDeclaration.oneOfGeneratedStructs.stream()
-            .flatMap((x)->{return x.first().getFields().stream().map(
-            (final CppField field) -> {
+            .flatMap(
+            (oneOfStructPair) -> {    
+            return ((CppClass)oneOfStructPair.first()).getSuperType().getGenericParams().stream().map((x)-> {return x.getGenericParams().get(0);}).map((possibleOneOfType)->{
                 return generateCreateFunction(
-                    x.first().getType(),
-                    x.second(), 
+                    oneOfDeclaration.ueMessage.getType(),
+                    oneOfStructPair.second(), 
                     1,
-                    field.getType()
+                    possibleOneOfType
                     );
             });
-            }).collect(Collectors.toList()));
+            }
+            ).collect(Collectors.toList()));
 
         return Arrays.asList(
             new CppClass(type, null, fields, methods),
