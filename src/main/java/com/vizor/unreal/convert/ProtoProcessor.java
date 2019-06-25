@@ -18,6 +18,7 @@ package com.vizor.unreal.convert;
 import com.squareup.wire.schema.internal.parser.EnumConstantElement;
 import com.squareup.wire.schema.internal.parser.EnumElement;
 import com.squareup.wire.schema.internal.parser.FieldElement;
+import com.squareup.wire.schema.internal.parser.OneOfElement;
 import com.squareup.wire.schema.internal.parser.MessageElement;
 import com.squareup.wire.schema.internal.parser.ProtoFileElement;
 import com.squareup.wire.schema.internal.parser.ServiceElement;
@@ -35,6 +36,7 @@ import com.vizor.unreal.tree.CppNamespace;
 import com.vizor.unreal.tree.CppRecord;
 import com.vizor.unreal.tree.CppStruct;
 import com.vizor.unreal.tree.CppType;
+import com.vizor.unreal.tree.CppType.Kind;
 import com.vizor.unreal.tree.preprocessor.CppInclude;
 import com.vizor.unreal.tree.preprocessor.CppMacroIf;
 import com.vizor.unreal.tree.preprocessor.CppPragma;
@@ -46,6 +48,7 @@ import org.apache.logging.log4j.Logger;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.squareup.wire.schema.Field.Label.REPEATED;
 import static com.vizor.unreal.tree.CppAnnotation.BlueprintReadWrite;
@@ -119,12 +122,26 @@ class ProtoProcessor implements Runnable
         {
             ueProvider.register(t.name(), ueNamedType(className, t));
             protoProvider.register(t.name(), cppNamedType(t));
+
+            if (t instanceof MessageElement) 
+            {
+                ((MessageElement)t).oneOfs().forEach(
+                    (OneOfElement el) -> {
+                        ueProvider.register(el.name(), ueOneOfType(className, el));
+                        protoProvider.register(el.name(), cppOneOfType(className, el));
+                    }
+                );
+            }
         }
 
         final List<Tuple<CppStruct, CppStruct>> castAssociations = new ArrayList<>();
         final List<CppStruct> unrealStructures = new ArrayList<>();
 
         final List<CppEnum> ueEnums = new ArrayList<>();
+
+        
+
+        final List<Tuple<Tuple<CppStruct, CppStruct>, Tuple<CppStruct, CppEnum>>> oneOfs = new ArrayList<>();
 
         // At this moment, we have all types registered in both type providers
         for (final TypeElement s : parse.types())
@@ -133,8 +150,21 @@ class ProtoProcessor implements Runnable
             {
                 final MessageElement messageElement = (MessageElement) s;
 
-                final CppStruct ueStruct = extractStruct(ueProvider, messageElement);
                 final CppStruct protoStruct = extractStruct(protoProvider, messageElement);
+
+                final CppStruct ueStruct = extractStruct(ueProvider, messageElement);
+
+                for (OneOfElement oe : messageElement.oneOfs())
+                {
+                    final Tuple<CppStruct, CppEnum> ueOneOf = extractOneOf(ueProvider, oe);
+                    
+                    unrealStructures.add(ueOneOf.first());
+
+                    ueEnums.add(ueOneOf.second());
+
+                    oneOfs.add(of(of(protoStruct, ueStruct), ueOneOf));
+                }
+
 
                 log.debug("Found type cast {} -> {}", ueStruct.getType(), protoStruct.getType());
 
@@ -157,13 +187,24 @@ class ProtoProcessor implements Runnable
 
         // Then reorder data types
         reorder(unrealStructures, indices);
-        reorder(castAssociations, indices);
+
+        // reorder(castAssociations, indices);
+
+        castAssociations.sort(
+            (Tuple<CppStruct, CppStruct> Lhs, Tuple<CppStruct, CppStruct> Rhs) -> 
+            { return unrealStructures.indexOf(Lhs.first()) - (unrealStructures.indexOf(Rhs.first())); }
+        );
+
 
         final CppNamespace casts = new CastGenerator().genCasts(castAssociations);
 
         log.debug("Found structures (sorted): {}", () ->
             unrealStructures.stream().map(s -> s.getType().getName()).collect(joining(", ", "[", "]")
         ));
+
+        // Generate OneOf wrappers
+        final OneOfGenerator oneOfGenerator = new OneOfGenerator(oneOfs);
+        final List<CppClass> oneOfsImpl = oneOfGenerator.genOneOfs();
 
         // Generate RPC workers
         final ClientWorkerGenerator clientWorkerGenerator = new ClientWorkerGenerator(services, ueProvider, parse);
@@ -244,6 +285,9 @@ class ProtoProcessor implements Runnable
             p.writeInlineComment("Structures:");
             unrealStructures.forEach(s -> s.accept(p).newLine());
 
+            p.writeInlineComment("OneOfs:");
+            oneOfsImpl.forEach(s -> s.accept(p).newLine());
+
             p.writeInlineComment("Forward class definitions (for delegates)");
             clients.forEach(c -> p.write("class ").write(c.getType().toString()).writeLine(";"));
             p.newLine();
@@ -260,6 +304,43 @@ class ProtoProcessor implements Runnable
 
             clients.forEach(w -> w.accept(p).newLine());
         }
+    }
+
+    private Tuple<CppStruct, CppEnum> extractOneOf(final TypesProvider provider, final OneOfElement oe) 
+    {
+        final CppType oneOfType = provider.get(oe.name());
+
+        final List<CppAnnotation> fieldAnnotations = new ArrayList<>();
+
+        fieldAnnotations.add(Transient);
+        fieldAnnotations.add(BlueprintReadWrite);
+
+        final List<CppField> fields = new ArrayList<>();
+
+        for (final FieldElement fe : oe.fields())
+        {
+            final CppType fieldUeType = provider.get(fe.type());
+
+            final CppField ueField = new CppField(fieldUeType, fe.name());
+
+            ueField.addAnnotation(fieldAnnotations);
+
+            fields.add(ueField);
+        }
+
+        final CppStruct oneOfStruct = new CppStruct(oneOfType, fields);
+
+        CppEnum oneOfCaseEnum = new CppEnum(
+            CppType.plain(oe.name() + "case", Enum), 
+            oe.fields().stream().collect(
+                Collectors.toMap(
+                    (FieldElement fe) -> fe.name(), 
+                    (FieldElement fe) -> fe.tag()
+                )
+            )
+        );
+
+        return of(oneOfStruct, oneOfCaseEnum);
     }
 
     private CppStruct extractStruct(final TypesProvider provider, final MessageElement me)
@@ -296,6 +377,15 @@ class ProtoProcessor implements Runnable
                 field.javaDoc.set(sourceDoc);
 
             field.addAnnotation(fieldAnnotations);
+            fields.add(field);
+        }
+
+        for (final OneOfElement oe : me.oneOfs())
+        {
+            final CppType oneOfType = provider.get(oe.name());
+            
+            final CppField field = new CppField(oneOfType, oe.name());
+
             fields.add(field);
         }
 
@@ -337,6 +427,11 @@ class ProtoProcessor implements Runnable
             throw new RuntimeException("Unknown type: '" + el.getClass().getName() + "'");
     }
 
+    private CppType ueOneOfType(final String serviceName, final OneOfElement el) 
+    {
+        return plain("F" + serviceName + "_" + "OneOf" + "_" + el.name(), Struct);
+    }
+
     private CppType cppNamedType(final TypeElement el)
     {
         if (el instanceof MessageElement)
@@ -361,5 +456,15 @@ class ProtoProcessor implements Runnable
         {
             throw new RuntimeException("Unknown type: '" + el.getClass().getName() + "'");
         }
+    }
+
+    private CppType cppOneOfType(final String serviceName, final OneOfElement el) 
+    {
+        final CppType ot = plain(el.name(), Kind.OneOf);
+
+        if (packageNamespace.hasName())
+            ot.setNamespaces(packageNamespace);
+
+        return ot;
     }
 }

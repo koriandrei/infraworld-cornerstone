@@ -73,6 +73,7 @@ public class CppType implements CtLeaf
         Struct,
         Class,
         Enum,
+        OneOf,
         Wildcard;
 
         /**
