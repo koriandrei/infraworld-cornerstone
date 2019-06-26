@@ -151,7 +151,7 @@ class OneOfGenerator
             (oneOfStructPair) -> {    
             return ((CppClass)oneOfStructPair.first()).getSuperType().getGenericParams().stream().map((x)-> {return x.getGenericParams().get(0);}).map((possibleOneOfType)->{
                 return generateCreateFunction(
-                    oneOfDeclaration.ueMessage.getType(),
+                    oneOfStructPair.first().getType(),
                     oneOfStructPair.second(), 
                     1,
                     possibleOneOfType

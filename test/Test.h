@@ -65,11 +65,11 @@ class INFRAWORLDCLIENTDEMO_API FTest_SampleMessageOneOfHelpers
 
     UFUNCTION()
     static
-    FTest_SampleMessage CreateFTest_SampleMessageFromFString(const FString& OneOfValue);
+    FTest_OneOf_test_oneof CreateFTest_OneOf_test_oneofFromFString(const FString& OneOfValue);
 
     UFUNCTION()
     static
-    FTest_SampleMessage CreateFTest_SampleMessageFromfloat(const float& OneOfValue);
+    FTest_OneOf_test_oneof CreateFTest_OneOf_test_oneofFromfloat(const float& OneOfValue);
 };
 
 UCLASS()

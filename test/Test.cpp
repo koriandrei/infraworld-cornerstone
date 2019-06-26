@@ -24,16 +24,16 @@ bool FTest_SampleMessageOneOfHelpers::TryGetValue()
     return false;
 }
 
-FTest_SampleMessage FTest_SampleMessageOneOfHelpers::CreateFTest_SampleMessageFromFString(const FString& OneOfValue)
+FTest_OneOf_test_oneof FTest_SampleMessageOneOfHelpers::CreateFTest_OneOf_test_oneofFromFString(const FString& OneOfValue)
 {
-    FTest_SampleMessage OneOf;
+    FTest_OneOf_test_oneof OneOf;
     OneOf.Set(OneOfValue);
     return OneOf;
 }
 
-FTest_SampleMessage FTest_SampleMessageOneOfHelpers::CreateFTest_SampleMessageFromfloat(const float& OneOfValue)
+FTest_OneOf_test_oneof FTest_SampleMessageOneOfHelpers::CreateFTest_OneOf_test_oneofFromfloat(const float& OneOfValue)
 {
-    FTest_SampleMessage OneOf;
+    FTest_OneOf_test_oneof OneOf;
     OneOf.Set(OneOfValue);
     return OneOf;
 }

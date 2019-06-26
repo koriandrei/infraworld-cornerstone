@@ -129,7 +129,6 @@ class ProtoProcessor implements Runnable
                 ((MessageElement)t).oneOfs().forEach(
                     (OneOfElement el) -> {
                         ueProvider.register(el.name(), ueOneOfType(className, el));
-                        protoProvider.register(el.name(), cppOneOfType(className, el));
                     }
                 );
             }
@@ -469,15 +468,5 @@ class ProtoProcessor implements Runnable
         {
             throw new RuntimeException("Unknown type: '" + el.getClass().getName() + "'");
         }
-    }
-
-    private CppType cppOneOfType(final String serviceName, final OneOfElement el) 
-    {
-        final CppType ot = plain(el.name(), Kind.OneOf);
-
-        if (packageNamespace.hasName())
-            ot.setNamespaces(packageNamespace);
-
-        return ot;
     }
 }
