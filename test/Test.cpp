@@ -41,6 +41,15 @@ FTest_OneOf_test_oneof FTest_SampleMessageOneOfHelpers::CreateFTest_OneOf_test_o
 
 void TOneOfHelpers<FTest_SampleMessage, SampleMessage>::LoadFromProto(const SampleMessage& ProtoMessage, const FTest_SampleMessage& UnrealMessage)
 {
+    test_oneofCase ProtoCase = ProtoMessage.test_oneofCase();
+    test_oneofCase UeCase = static_cast<uint8>(ProtoCase);
+    FTest_OneOf_test_oneof UeOneOf;
+    switch (ProtoCase)
+    {
+    case OneOfCase:
+    	UeOneOf.SetOneOfCase(ProtoCast<test_oneofcase>(ProtoMessage.OneOfCase());
+    	break;
+    }
 }
 
 void TOneOfHelpers<FTest_SampleMessage, SampleMessage>::SaveToProto(const FTest_SampleMessage& UnrealMessage, const SampleMessage& ProtoMessage)

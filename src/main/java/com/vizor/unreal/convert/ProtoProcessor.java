@@ -24,6 +24,7 @@ import com.squareup.wire.schema.internal.parser.ProtoFileElement;
 import com.squareup.wire.schema.internal.parser.ServiceElement;
 import com.squareup.wire.schema.internal.parser.TypeElement;
 import com.vizor.unreal.config.Config;
+import com.vizor.unreal.convert.OneOfDefinition.OneOfInStruct;
 import com.vizor.unreal.provider.ProtoTypesProvider;
 import com.vizor.unreal.provider.TypesProvider;
 import com.vizor.unreal.provider.UnrealTypesProvider;
@@ -48,6 +49,7 @@ import org.apache.logging.log4j.Logger;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -114,6 +116,11 @@ class ProtoProcessor implements Runnable
         this.packageNamespace = new CppNamespace(parse.packageName());
     }
 
+    private static <T extends CppRecord> void Distribute(final List<T> listToDistributeTo, final Collection<CppRecord> recordsToDistribute)
+    {
+        
+    }
+
     @Override
     public void run()
     {
@@ -141,7 +148,7 @@ class ProtoProcessor implements Runnable
 
         
 
-        final List<Tuple<Tuple<CppStruct, CppStruct>, Tuple<CppStruct, CppEnum>>> oneOfs = new ArrayList<>();
+        final List<OneOfDefinition> oneOfs = new ArrayList<>();
 
         // At this moment, we have all types registered in both type providers
         for (final TypeElement s : parse.types())
@@ -154,17 +161,22 @@ class ProtoProcessor implements Runnable
 
                 final CppStruct ueStruct = extractStruct(ueProvider, messageElement);
 
+                List<OneOfInStruct> oneOfStructs = new ArrayList<>();
+                
                 for (OneOfElement oe : messageElement.oneOfs())
                 {
                     final Tuple<CppStruct, CppEnum> ueOneOf = extractOneOf(ueProvider, oe);
                     
                     unrealStructures.add(ueOneOf.first());
-
+                    
                     ueEnums.add(ueOneOf.second());
-
-                    oneOfs.add(of(of(protoStruct, ueStruct), ueOneOf));
+                    
+                    oneOfStructs.add(new OneOfInStruct(null, ueOneOf.first(), oe));
                 }
-
+                
+                OneOfDefinition oneOf = new OneOfDefinition(oneOfStructs, ueStruct, protoStruct, messageElement);
+                
+                oneOfs.add(oneOf);
 
                 log.debug("Found type cast {} -> {}", ueStruct.getType(), protoStruct.getType());
 
@@ -203,8 +215,14 @@ class ProtoProcessor implements Runnable
         ));
 
         // Generate OneOf wrappers
-        final OneOfGenerator oneOfGenerator = new OneOfGenerator(oneOfs);
-        final List<CppClass> oneOfsImpl = oneOfGenerator.genOneOfs();
+        final OneOfGenerator oneOfGenerator = new OneOfGenerator(ueProvider, protoProvider, oneOfs);
+        final Collection<CppRecord> oneOfsImpl = oneOfGenerator.genOneOfs();
+
+        oneOfsImpl.forEach((record) -> {
+            if (record instanceof CppEnum) {
+                ueEnums.add((CppEnum)record);
+            }
+        });
 
         // Generate RPC workers
         final ClientWorkerGenerator clientWorkerGenerator = new ClientWorkerGenerator(services, ueProvider, parse);
@@ -362,26 +380,7 @@ class ProtoProcessor implements Runnable
         final List<CppField> fields = new ArrayList<>();
         for (final FieldElement fe : me.fields())
         {
-            // Get the type
-            final CppType ueType = provider.get(fe.type());
-
-            // If the field is repeated - make a TArray<?> of type.
-            final CppField field;
-            if (fe.label() == REPEATED)
-            {
-                final CppType ueArrayType = provider.arrayOf(ueType);
-                field = new CppField(ueArrayType, provider.fixFieldName(fe.name(), false));
-            }
-            else
-            {
-                final String fieldName = provider.fixFieldName(fe.name(), ueType.isA(boolean.class));
-                field = new CppField(ueType, fieldName);
-            }
-
-            // Add docs if has any
-            final String sourceDoc = fe.documentation();
-            if (!sourceDoc.isEmpty())
-                field.javaDoc.set(sourceDoc);
+            final CppField field = ParseField(provider, fe);
 
             field.addAnnotation(fieldAnnotations);
             fields.add(field);
@@ -412,6 +411,32 @@ class ProtoProcessor implements Runnable
 
         struct.setResidence(Header);
         return struct;
+    }
+
+    public static CppField ParseField(TypesProvider provider, FieldElement fe) {
+        
+            // Get the type
+            final CppType ueType = provider.get(fe.type());
+
+            // If the field is repeated - make a TArray<?> of type.
+            final CppField field;
+            if (fe.label() == REPEATED)
+            {
+                final CppType ueArrayType = provider.arrayOf(ueType);
+                field = new CppField(ueArrayType, provider.fixFieldName(fe.name(), false));
+            }
+            else
+            {
+                final String fieldName = provider.fixFieldName(fe.name(), ueType.isA(boolean.class));
+                field = new CppField(ueType, fieldName);
+            }
+
+            // Add docs if has any
+            final String sourceDoc = fe.documentation();
+            if (!sourceDoc.isEmpty())
+                field.javaDoc.set(sourceDoc);
+
+                return field;
     }
 
     private CppEnum extractEnum(final TypesProvider provider, final EnumElement ee)
