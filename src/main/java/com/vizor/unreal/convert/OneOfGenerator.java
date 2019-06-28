@@ -11,7 +11,6 @@ import java.util.stream.Stream;
 import com.squareup.wire.schema.internal.parser.FieldElement;
 import com.squareup.wire.schema.internal.parser.MessageElement;
 import com.squareup.wire.schema.internal.parser.OneOfElement;
-import com.vizor.unreal.convert.OneOfDefinition.OneOfInStruct;
 import com.vizor.unreal.provider.TypesProvider;
 import com.vizor.unreal.tree.CppArgument;
 import com.vizor.unreal.tree.CppClass;
@@ -41,13 +40,15 @@ class OneOfDefinition {
 }
 
 class OneOfInStruct {
-    public OneOfInStruct(List<CppField> fields, CppStruct oneOfUnrealStruct, OneOfElement oneOfElement)
-    {
+    public OneOfInStruct(CppEnum oneOfCaseEnum, List<CppField> fields, CppStruct oneOfUnrealStruct,
+            OneOfElement oneOfElement) {
+        this.oneOfCaseEnum = oneOfCaseEnum;
         this.fields = fields;
         this.oneOfUnrealStruct = oneOfUnrealStruct;
         this.oneOfElement = oneOfElement;
     }
 
+    public CppEnum oneOfCaseEnum;
     public List<CppField> fields;
     public CppStruct oneOfUnrealStruct;
     public OneOfElement oneOfElement;
@@ -122,7 +123,7 @@ class OneOfGenerator {
 
         OneOfInStruct currentOneOf = oneOfDefinition.oneOfStructs.get(0);
 
-        CppEnum caseValues = generateOneOfEnum(currentOneOf.oneOfElement);
+        CppEnum caseValues = generateOneOfEnum(currentOneOf);
 
         String protoCaseEnumName = caseValues.getType().getName();
         String protoCaseEnumGetMethodName = caseValues.getType().getName();
@@ -170,7 +171,7 @@ class OneOfGenerator {
             return (oneOfStruct.oneOfElement.fields().stream().map((oneOfField) -> {
                 return generateCreateFunction(
                     oneOfStruct.oneOfUnrealStruct.getType(),
-                    generateOneOfEnum(oneOfStruct.oneOfElement), 
+                    generateOneOfEnum(oneOfStruct), 
                     oneOfField.tag(), 
                     getOneOfFieldType(oneOfField)
                 );
@@ -187,24 +188,13 @@ class OneOfGenerator {
         return ProtoProcessor.ParseField(ueProvider, oneOfField).getType();
     }
 
-    private static CppEnum generateOneOfEnum(OneOfElement oneOfElement) {
-        final CppType caseEnumType = CppType.plain(oneOfElement.name() + "Case", Kind.Enum);
-        
-        final CppEnum generatedCaseEnum = new CppEnum(caseEnumType, 
-            oneOfElement.fields().stream()
-                .collect(
-                    Collectors.toMap(
-                        (fieldElement)->fieldElement.name(),
-                        (fieldElement)->fieldElement.tag()
-                    )
-                )
-            );
-
-        return generatedCaseEnum;
+    private static CppEnum generateOneOfEnum(OneOfInStruct currentOneOf) {
+        return currentOneOf.oneOfCaseEnum;
     }
 
-    private Collection<CppClass> generateOneOfImpl(final OneOfDefinition oneOfDefinition)
+    private Collection<CppRecord> generateOneOfImpl(final OneOfDefinition oneOfDefinition)
     {
+
         return Arrays.asList(
             generateHelpersClass(oneOfDefinition),
             generateOneOfCasts(oneOfDefinition)

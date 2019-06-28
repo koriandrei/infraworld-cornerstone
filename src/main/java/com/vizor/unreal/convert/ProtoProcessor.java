@@ -24,7 +24,6 @@ import com.squareup.wire.schema.internal.parser.ProtoFileElement;
 import com.squareup.wire.schema.internal.parser.ServiceElement;
 import com.squareup.wire.schema.internal.parser.TypeElement;
 import com.vizor.unreal.config.Config;
-import com.vizor.unreal.convert.OneOfDefinition.OneOfInStruct;
 import com.vizor.unreal.provider.ProtoTypesProvider;
 import com.vizor.unreal.provider.TypesProvider;
 import com.vizor.unreal.provider.UnrealTypesProvider;
@@ -116,11 +115,6 @@ class ProtoProcessor implements Runnable
         this.packageNamespace = new CppNamespace(parse.packageName());
     }
 
-    private static <T extends CppRecord> void Distribute(final List<T> listToDistributeTo, final Collection<CppRecord> recordsToDistribute)
-    {
-        
-    }
-
     @Override
     public void run()
     {
@@ -165,13 +159,13 @@ class ProtoProcessor implements Runnable
                 
                 for (OneOfElement oe : messageElement.oneOfs())
                 {
-                    final Tuple<CppStruct, CppEnum> ueOneOf = extractOneOf(ueProvider, oe);
+                    final OneOfInStruct oneOf = extractOneOf(ueProvider, oe);
                     
-                    unrealStructures.add(ueOneOf.first());
+                    unrealStructures.add(oneOf.oneOfUnrealStruct);
                     
-                    ueEnums.add(ueOneOf.second());
+                    ueEnums.add(oneOf.oneOfCaseEnum);
                     
-                    oneOfStructs.add(new OneOfInStruct(null, ueOneOf.first(), oe));
+                    oneOfStructs.add(oneOf);
                 }
                 
                 OneOfDefinition oneOf = new OneOfDefinition(oneOfStructs, ueStruct, protoStruct, messageElement);
@@ -216,13 +210,10 @@ class ProtoProcessor implements Runnable
 
         // Generate OneOf wrappers
         final OneOfGenerator oneOfGenerator = new OneOfGenerator(ueProvider, protoProvider, oneOfs);
-        final Collection<CppRecord> oneOfsImpl = oneOfGenerator.genOneOfs();
 
-        oneOfsImpl.forEach((record) -> {
-            if (record instanceof CppEnum) {
-                ueEnums.add((CppEnum)record);
-            }
-        });
+        Collection<CppRecord> extraRecords = new ArrayList<>();
+
+        extraRecords.addAll(oneOfGenerator.genOneOfs());
 
         // Generate RPC workers
         final ClientWorkerGenerator clientWorkerGenerator = new ClientWorkerGenerator(services, ueProvider, parse);
@@ -303,8 +294,8 @@ class ProtoProcessor implements Runnable
             p.writeInlineComment("Structures:");
             unrealStructures.forEach(s -> s.accept(p).newLine());
 
-            p.writeInlineComment("OneOfs:");
-            oneOfsImpl.forEach(s -> s.accept(p).newLine());
+            p.writeInlineComment("Extras:");
+            extraRecords.forEach(s -> s.accept(p).newLine());
 
             p.writeInlineComment("Forward class definitions (for delegates)");
             clients.forEach(c -> p.write("class ").write(c.getType().toString()).writeLine(";"));
@@ -324,7 +315,7 @@ class ProtoProcessor implements Runnable
         }
     }
 
-    private Tuple<CppStruct, CppEnum> extractOneOf(final TypesProvider provider, final OneOfElement oe) {
+    private OneOfInStruct extractOneOf(final TypesProvider provider, final OneOfElement oe) {
         final CppType oneOfType = provider.get(oe.name());
 
         final List<CppAnnotation> fieldAnnotations = new ArrayList<>();
@@ -347,6 +338,10 @@ class ProtoProcessor implements Runnable
         CppEnum oneOfCaseEnum = new CppEnum(CppType.plain(oe.name() + "case", Enum), oe.fields().stream()
                 .collect(Collectors.toMap((FieldElement fe) -> fe.name(), (FieldElement fe) -> fe.tag())));
 
+        List<CppField> structFields = new ArrayList<>(fields);
+
+        structFields.add(new CppField(oneOfCaseEnum.getType(), "OneOfCase"));
+
         final CppClass oneOfStruct = new CppClass(
             oneOfType, 
             CppType.wildcardGeneric("TAnyOf", Kind.Struct, fields.size()).makeGeneric(
@@ -361,11 +356,11 @@ class ProtoProcessor implements Runnable
                 }).collect(Collectors.toList())
                 )
             ,
-            Arrays.asList(new CppField(oneOfCaseEnum.getType(), "OneOfCase")), 
+            structFields,
             new ArrayList<>()
         );
 
-        return of(oneOfStruct, oneOfCaseEnum);
+        return new OneOfInStruct(oneOfCaseEnum, fields, oneOfStruct, oe);
     }
 
     private CppStruct extractStruct(final TypesProvider provider, final MessageElement me)

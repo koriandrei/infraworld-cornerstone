@@ -30,6 +30,12 @@ struct INFRAWORLDCLIENTDEMO_API FTest_OneOf_test_oneof : public TAnyOf<TTypeInte
 
 public:
     // Conduits and GRPC stub
+    UPROPERTY(BlueprintReadWrite, Transient)
+    FString name;
+
+    UPROPERTY(BlueprintReadWrite, Transient)
+    float sub_message;
+
     UPROPERTY()
     test_oneofcase OneOfCase;
 
@@ -53,7 +59,7 @@ public:
     FTest_OneOf_test_oneof test_oneof;
 };
 
-// OneOfs:
+// Extras:
 UCLASS()
 class INFRAWORLDCLIENTDEMO_API FTest_SampleMessageOneOfHelpers
 {

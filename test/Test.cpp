@@ -5,15 +5,14 @@
 // PLEASE, DO NOT EDIT IT MANUALLY
 //
 
-#include "InfraworldClientDemo.h"
 #include "Test.h"
 #include "RpcClientWorker.h"
 #include "CastUtils.h"
 #include "GrpcIncludesBegin.h"
 #include <grpc/support/log.h>
 #include <grpc++/channel.h>
-#include "Generated/test/test.pb.hpp"
-#include "Generated/test/test.grpc.pb.hpp"
+#include "Wrappers/test/test.pb.hpp"
+#include "Wrappers/test/test.grpc.pb.hpp"
 #include "ChannelProvider.h"
 #include "GrpcIncludesEnd.h"
 
@@ -41,12 +40,16 @@ FTest_OneOf_test_oneof FTest_SampleMessageOneOfHelpers::CreateFTest_OneOf_test_o
 
 void TOneOfHelpers<FTest_SampleMessage, SampleMessage>::LoadFromProto(const SampleMessage& ProtoMessage, const FTest_SampleMessage& UnrealMessage)
 {
-    test_oneofCase ProtoCase = ProtoMessage.test_oneofCase();
-    test_oneofCase UeCase = static_cast<uint8>(ProtoCase);
+    test_oneofcase ProtoCase = ProtoMessage.test_oneofcase();
+    test_oneofcase UeCase = static_cast<uint8>(ProtoCase);
     FTest_OneOf_test_oneof UeOneOf;
     switch (ProtoCase)
     {
-    case OneOfCase:
+    case name:
+    	UeOneOf.Setname(ProtoCast<FString>(ProtoMessage.name());
+    	break;case sub_message:
+    	UeOneOf.Setsub_message(ProtoCast<float>(ProtoMessage.sub_message());
+    	break;case OneOfCase:
     	UeOneOf.SetOneOfCase(ProtoCast<test_oneofcase>(ProtoMessage.OneOfCase());
     	break;
     }
