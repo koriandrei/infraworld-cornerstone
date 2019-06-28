@@ -69,13 +69,29 @@ class INFRAWORLDCLIENTDEMO_API FTest_SampleMessageOneOfHelpers
     template <T>
     bool TryGetValue();
 
-    UFUNCTION()
+    UFUNCTION(BlueprintCallable)
     static
-    FTest_OneOf_test_oneof CreateFTest_OneOf_test_oneofFromFString(const FString& OneOfValue);
+    FTest_OneOf_test_oneof CreateFromname(FString OneOfValue);
 
-    UFUNCTION()
+    UFUNCTION(BlueprintCallable)
     static
-    FTest_OneOf_test_oneof CreateFTest_OneOf_test_oneofFromfloat(const float& OneOfValue);
+    bool TryGetname(const FTest_OneOf_test_oneof& Self, const FString& OutOneOfValue) const;
+
+    UFUNCTION(BlueprintCallable)
+    static
+    void Setname(const FTest_OneOf_test_oneof& Self, const FString& OneOfValue);
+
+    UFUNCTION(BlueprintCallable)
+    static
+    FTest_OneOf_test_oneof CreateFromsub_message(float OneOfValue);
+
+    UFUNCTION(BlueprintCallable)
+    static
+    bool TryGetsub_message(const FTest_OneOf_test_oneof& Self, const float& OutOneOfValue) const;
+
+    UFUNCTION(BlueprintCallable)
+    static
+    void Setsub_message(const FTest_OneOf_test_oneof& Self, const float& OneOfValue);
 };
 
 UCLASS()

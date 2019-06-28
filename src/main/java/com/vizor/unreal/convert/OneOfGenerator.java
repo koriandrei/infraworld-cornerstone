@@ -12,6 +12,7 @@ import com.squareup.wire.schema.internal.parser.FieldElement;
 import com.squareup.wire.schema.internal.parser.MessageElement;
 import com.squareup.wire.schema.internal.parser.OneOfElement;
 import com.vizor.unreal.provider.TypesProvider;
+import com.vizor.unreal.tree.CppAnnotation;
 import com.vizor.unreal.tree.CppArgument;
 import com.vizor.unreal.tree.CppClass;
 import com.vizor.unreal.tree.CppEnum;
@@ -168,20 +169,82 @@ class OneOfGenerator {
         methods.add(generateTryGet());
 
         methods.addAll(oneOfDefinition.oneOfStructs.stream().flatMap((oneOfStruct) -> {
-            return (oneOfStruct.oneOfElement.fields().stream().map((oneOfField) -> {
-                return generateCreateFunction(
-                    oneOfStruct.oneOfUnrealStruct.getType(),
-                    generateOneOfEnum(oneOfStruct), 
-                    oneOfField.tag(), 
-                    getOneOfFieldType(oneOfField)
+                return generateHelperClassFunctions(
+                    oneOfStruct
                 );
-            })
-
-            );
         }).collect(Collectors.toList()));
 
         return new CppClass(type, null, fields, methods);
 
+    }
+
+    private Stream<CppFunction> generateHelperClassFunctions(OneOfInStruct oneOfStruct) {
+        CppArgument selfStructArgument = new CppArgument(oneOfStruct.oneOfUnrealStruct.getType().makeRef(), "Self");
+        
+        return oneOfStruct.oneOfElement.fields().stream().flatMap(
+            (fieldElement) -> {
+                CppFunction createFunction = new CppFunction(
+                    "Create" + "From" + generateArgumentName(fieldElement), 
+                    oneOfStruct.oneOfUnrealStruct.getType(), 
+                    Arrays.asList(
+                        new CppArgument(getOneOfFieldType(fieldElement).makeConstant(Passage.ByRef), "OneOfValue")
+                    )
+                );
+
+                createFunction.setBody(
+                    String.join(
+                        System.lineSeparator(),
+                        "return " + oneOfStruct.oneOfUnrealStruct.getType().getName() + "::Create(OneOfValue, " + fieldElement.tag() + ");"
+                    )
+                );
+
+                CppFunction getFunction = new CppFunction(
+                    "TryGet" + generateArgumentName(fieldElement), 
+                    CppType.plain("bool", Kind.Primitive),
+                    Arrays.asList(
+                        selfStructArgument, 
+                        new CppArgument(getOneOfFieldType(fieldElement).makeRef(), "OutOneOfValue")
+                    )
+                );
+
+                getFunction.isConst = true;
+
+                getFunction.setBody(
+                    String.join(
+                        System.lineSeparator(),
+                        "return Self.TryGet(OutOneOfValue, " + fieldElement.tag() + ");"
+                    )
+                );
+
+                CppFunction setFunction = new CppFunction(
+                    "Set" + generateArgumentName(fieldElement), CppType.plain("void", Kind.Primitive),
+                    Arrays.asList(
+                        selfStructArgument, 
+                        new CppArgument(getOneOfFieldType(fieldElement).makeConstant(Passage.ByRef), "OneOfValue")
+                    )
+                );
+
+                setFunction.setBody(
+                    String.join(
+                        System.lineSeparator(), 
+                        "Self.Set(OneOfValue, " + fieldElement.tag() + ");" 
+                    )
+                );
+
+                return Arrays.asList(createFunction, getFunction, setFunction).stream().map((function)->
+                {
+                    function.addAnnotation(CppAnnotation.BlueprintCallable);
+
+                    function.isStatic = true;
+
+                    return function;
+                });
+            }
+        );
+    }
+
+    private String generateArgumentName(FieldElement fieldElement) {
+        return fieldElement.name();
     }
 
     private CppType getOneOfFieldType(FieldElement oneOfField) {
@@ -194,7 +257,6 @@ class OneOfGenerator {
 
     private Collection<CppRecord> generateOneOfImpl(final OneOfDefinition oneOfDefinition)
     {
-
         return Arrays.asList(
             generateHelpersClass(oneOfDefinition),
             generateOneOfCasts(oneOfDefinition)

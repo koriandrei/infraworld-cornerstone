@@ -23,18 +23,34 @@ bool FTest_SampleMessageOneOfHelpers::TryGetValue()
     return false;
 }
 
-FTest_OneOf_test_oneof FTest_SampleMessageOneOfHelpers::CreateFTest_OneOf_test_oneofFromFString(const FString& OneOfValue)
+FTest_OneOf_test_oneof FTest_SampleMessageOneOfHelpers::CreateFromname(FString OneOfValue)
 {
-    FTest_OneOf_test_oneof OneOf;
-    OneOf.Set(OneOfValue);
-    return OneOf;
+    return FTest_OneOf_test_oneof::Create(OneOfValue, 4);
 }
 
-FTest_OneOf_test_oneof FTest_SampleMessageOneOfHelpers::CreateFTest_OneOf_test_oneofFromfloat(const float& OneOfValue)
+bool FTest_SampleMessageOneOfHelpers::TryGetname(const FTest_OneOf_test_oneof& Self, const FString& OutOneOfValue) const
 {
-    FTest_OneOf_test_oneof OneOf;
-    OneOf.Set(OneOfValue);
-    return OneOf;
+    return Self.TryGet(OutOneOfValue, 4);
+}
+
+void FTest_SampleMessageOneOfHelpers::Setname(const FTest_OneOf_test_oneof& Self, const FString& OneOfValue)
+{
+    Self.Set(OneOfValue, 4);
+}
+
+FTest_OneOf_test_oneof FTest_SampleMessageOneOfHelpers::CreateFromsub_message(float OneOfValue)
+{
+    return FTest_OneOf_test_oneof::Create(OneOfValue, 9);
+}
+
+bool FTest_SampleMessageOneOfHelpers::TryGetsub_message(const FTest_OneOf_test_oneof& Self, const float& OutOneOfValue) const
+{
+    return Self.TryGet(OutOneOfValue, 9);
+}
+
+void FTest_SampleMessageOneOfHelpers::Setsub_message(const FTest_OneOf_test_oneof& Self, const float& OneOfValue)
+{
+    Self.Set(OneOfValue, 9);
 }
 
 
