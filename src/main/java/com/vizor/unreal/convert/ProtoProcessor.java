@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import static com.squareup.wire.schema.Field.Label.REPEATED;
@@ -202,18 +203,22 @@ class ProtoProcessor implements Runnable
         );
 
 
-        final CppNamespace casts = new CastGenerator().genCasts(castAssociations);
-
-        log.debug("Found structures (sorted): {}", () ->
-            unrealStructures.stream().map(s -> s.getType().getName()).collect(joining(", ", "[", "]")
-        ));
-
         // Generate OneOf wrappers
         final OneOfGenerator oneOfGenerator = new OneOfGenerator(ueProvider, protoProvider, oneOfs);
 
         Collection<CppRecord> extraRecords = new ArrayList<>();
 
         extraRecords.addAll(oneOfGenerator.genOneOfs());
+
+
+        BiFunction<CppStruct, CppStruct, String> ueToProtoOneofCast = oneOfGenerator.createUeToProtoCastFunction();
+        BiFunction<CppStruct, CppStruct, String> protoToUeOneofCast = oneOfGenerator.createProtoToUeCastFunction();
+
+        final CppNamespace casts = new CastGenerator(Arrays.asList(ueToProtoOneofCast), Arrays.asList(protoToUeOneofCast) ).genCasts(castAssociations);
+
+        log.debug("Found structures (sorted): {}", () ->
+            unrealStructures.stream().map(s -> s.getType().getName()).collect(joining(", ", "[", "]")
+        ));
 
         // Generate RPC workers
         final ClientWorkerGenerator clientWorkerGenerator = new ClientWorkerGenerator(services, ueProvider, parse);

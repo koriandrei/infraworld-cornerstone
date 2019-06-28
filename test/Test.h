@@ -71,7 +71,7 @@ class INFRAWORLDCLIENTDEMO_API FTest_SampleMessageOneOfHelpers
 
     UFUNCTION(BlueprintCallable)
     static
-    FTest_OneOf_test_oneof CreateFromname(FString OneOfValue);
+    FTest_OneOf_test_oneof CreateFromname(const FString& OneOfValue);
 
     UFUNCTION(BlueprintCallable)
     static
@@ -83,7 +83,7 @@ class INFRAWORLDCLIENTDEMO_API FTest_SampleMessageOneOfHelpers
 
     UFUNCTION(BlueprintCallable)
     static
-    FTest_OneOf_test_oneof CreateFromsub_message(float OneOfValue);
+    FTest_OneOf_test_oneof CreateFromsub_message(const float& OneOfValue);
 
     UFUNCTION(BlueprintCallable)
     static

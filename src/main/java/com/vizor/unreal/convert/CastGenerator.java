@@ -48,6 +48,21 @@ class CastGenerator
 
     private static final Logger log = LogManager.getLogger(CastGenerator.class);
 
+    private BiFunction<CppStruct, CppStruct, String> postUeToProtoCast;
+    private BiFunction<CppStruct, CppStruct, String> postProtoToUeCast;
+
+    public CastGenerator(
+        final List<BiFunction<CppStruct, CppStruct, String>> postUeToProtoCasts,
+        final List<BiFunction<CppStruct, CppStruct, String>> postProtoToUeCasts
+    )
+    {
+        if (postUeToProtoCasts != null)
+            postUeToProtoCast = (x,y) -> postUeToProtoCasts.stream().map((f) -> f.apply(x,y)).collect(joining(lineSeparator()));
+        
+        if (postProtoToUeCasts != null)
+            postProtoToUeCast = (x,y) -> postProtoToUeCasts.stream().map((f) -> f.apply(x,y)).collect(joining(lineSeparator()));
+    }
+
     public enum CastMethod
     {
         PtrArrayCast,
@@ -85,16 +100,29 @@ class CastGenerator
             final CppStruct cppStruct = t.first();
             final CppStruct ueStruct = t.second();
 
-            ns.add(generateCast(cppStruct, ueStruct, this::generateProtoToUeCast));
-            ns.add(generateCast(ueStruct, cppStruct, this::generateUeToProtoCast));
+            ns.add(generateCast(cppStruct, ueStruct, this::generateProtoToUeCast, this::getPostProtoToUeCast )); //(protoField, ueField) -> { return String.join(lineSeparator(), generateProtoToUeCast(protoField, ueField), getPostProtoToUeCast(cppStruct, ueStruct));}));
+            ns.add(generateCast(ueStruct, cppStruct, this::generateUeToProtoCast, this::getPostUeToProtoCast )); // (ueField, protoField) -> { return String.join(lineSeparator(), generateUeToProtoCast(protoField, ueField), getPostUeToProtoCast(cppStruct, ueStruct)); }));
         });
 
         ns.setResidence(Cpp);
         return ns;
     }
 
+    private String getPostUeToProtoCast(CppStruct cppStruct, CppStruct ueStruct) {
+        if (postUeToProtoCast == null)
+            return "";
+        return postUeToProtoCast.apply(ueStruct, cppStruct);
+    }
+
+    private String getPostProtoToUeCast(CppStruct cppStruct, CppStruct ueStruct) {
+        if (postProtoToUeCast == null)
+            return "";
+        return postProtoToUeCast.apply(cppStruct, ueStruct);
+    }
+
     private CppFunction generateCast(final CppStruct inStruct, final CppStruct outStruct,
-                                     final BiFunction<CppField, CppField, String> genFunction)
+                                     final BiFunction<CppField, CppField, String> genFunction,
+                                     final BiFunction<CppStruct, CppStruct, String> postFunction)
     {
         final CppType inType = inStruct.getType();
         final CppType outType = outStruct.getType();
@@ -133,14 +161,9 @@ class CastGenerator
             body.append(lineSeparator());
         }
 
-        if (ueFields.size() > cppFields.size())
+        if (postFunction != null)
         {
-            for (int oneOfPropertyIndex = 0; oneOfPropertyIndex < ueFields.size() - cppFields.size(); oneOfPropertyIndex++)
-            {
-                final CppField ueOneofProperty = ueFields.get(cppFields.size() + oneOfPropertyIndex);
-
-                body.append("TOneOfHelpers::SaveToProto(").append(inputItemName).append(ueOneofProperty.getName()).append(", ").append(outputItemName).append(");").append(lineSeparator());
-            }
+            body.append(postFunction.apply(inStruct, outStruct));
         }
 
         body.append("return ").append(outputItemName).append(';');

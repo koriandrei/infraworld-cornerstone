@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -272,5 +273,17 @@ class OneOfGenerator {
         );
         
 	}
+
+	public BiFunction<CppStruct, CppStruct, String> createUeToProtoCastFunction() {
+		return (protoStruct, ueStruct) -> { 
+            return "TOneOfHelpers<" + ueStruct.getType().getName() + ", " + protoStruct.getType().getName()  +  ">::SaveToProto(Item, OutItem);";
+        };
+	}
+
+	public BiFunction<CppStruct, CppStruct, String> createProtoToUeCastFunction() {
+		return (protoStruct, ueStruct) -> { 
+            return "TOneOfHelpers<" + ueStruct.getType().getName() + ", " + protoStruct.getType().getName()  +  ">::LoadFromProto(OutItem, Item);";
+        };
+    }
 
 }

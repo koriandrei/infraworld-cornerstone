@@ -23,7 +23,7 @@ bool FTest_SampleMessageOneOfHelpers::TryGetValue()
     return false;
 }
 
-FTest_OneOf_test_oneof FTest_SampleMessageOneOfHelpers::CreateFromname(FString OneOfValue)
+FTest_OneOf_test_oneof FTest_SampleMessageOneOfHelpers::CreateFromname(const FString& OneOfValue)
 {
     return FTest_OneOf_test_oneof::Create(OneOfValue, 4);
 }
@@ -38,7 +38,7 @@ void FTest_SampleMessageOneOfHelpers::Setname(const FTest_OneOf_test_oneof& Self
     Self.Set(OneOfValue, 4);
 }
 
-FTest_OneOf_test_oneof FTest_SampleMessageOneOfHelpers::CreateFromsub_message(float OneOfValue)
+FTest_OneOf_test_oneof FTest_SampleMessageOneOfHelpers::CreateFromsub_message(const float& OneOfValue)
 {
     return FTest_OneOf_test_oneof::Create(OneOfValue, 9);
 }
@@ -90,8 +90,7 @@ namespace casts
         // Primitive (int32) <- Primitive (google::protobuf::int32)
         OutItem.Number = Proto_Cast<int32>(Item.number());
 
-        TOneOfHelpers::SaveToProto(Itemtest_oneof, OutItem);
-        return OutItem;
+        TOneOfHelpers<FTest_SampleMessage, SampleMessage>::LoadFromProto(OutItem, Item);return OutItem;
     }
 
     template <>
@@ -107,7 +106,7 @@ namespace casts
         // Primitive (google::protobuf::int32) <- Primitive (int32)
         OutItem.set_number(Proto_Cast<google::protobuf::int32>(Item.Number));
 
-        return OutItem;
+        TOneOfHelpers<FTest_SampleMessage, SampleMessage>::SaveToProto(Item, OutItem);return OutItem;
     }
 }// end namespace 'casts'
 class INFRAWORLDCLIENTDEMO_API SearchServiceRpcClientWorker : public RpcClientWorker
