@@ -39,6 +39,9 @@ public abstract class TypesProvider
     private final Map<String, CppType> types = new HashMap<>();
     private final Map<String, CppType> compiledGenerics = new HashMap<>();
 
+    private final Map<CppType, String> reverseTypes = new HashMap<>();
+
+
     private final CppType arrayType;
 
     TypesProvider()
@@ -47,6 +50,11 @@ public abstract class TypesProvider
                 + getClass().getCanonicalName() + ".initArrayType() returned null");
 
         init();
+    }
+
+    public String getProtoType(final CppType cppType)
+    {
+        return reverseTypes.get(cppType);
     }
 
     /**
@@ -115,6 +123,9 @@ public abstract class TypesProvider
     final void register(final String protoType, final CppType cppType, final Class<?> nativeType)
     {
         final CppType previous = types.put(protoType, cppType);
+        
+        reverseTypes.put(cppType, protoType);
+
         if (nonNull(previous))
             throw new RuntimeException("Type association '" + protoType + "' -> '" + previous.getName() +
                     "' is already defined");

@@ -57,17 +57,23 @@ void FTest_SampleMessageOneOfHelpers::Setsub_message(const FTest_OneOf_test_oneo
 void TOneOfHelpers<FTest_SampleMessage, SampleMessage>::LoadFromProto(const SampleMessage& ProtoMessage, const FTest_SampleMessage& UnrealMessage)
 {
     test_oneofcase ProtoCase = ProtoMessage.test_oneofcase();
-    test_oneofcase UeCase = static_cast<uint8>(ProtoCase);
     FTest_OneOf_test_oneof UeOneOf;
     switch (ProtoCase)
     {
-    case name:
-    	UeOneOf.Setname(ProtoCast<FString>(ProtoMessage.name());
-    	break;case sub_message:
-    	UeOneOf.Setsub_message(ProtoCast<float>(ProtoMessage.sub_message());
-    	break;case OneOfCase:
-    	UeOneOf.SetOneOfCase(ProtoCast<test_oneofcase>(ProtoMessage.OneOfCase());
-    	break;
+    case 4:
+    {
+    TValueBox<FString> OutItem;
+    OutItem.name = Proto_Cast<std::string>(Item.Value());
+    UnrealMessage.Set(OutItem.GetValue(), 4);
+    break;
+    }
+    case 9:
+    {
+    TValueBox<float> OutItem;
+    OutItem.sub_message = Proto_Cast<google::protobuf::float>(Item.Value());
+    UnrealMessage.Set(OutItem.GetValue(), 9);
+    break;
+    }
     }
 }
 

@@ -100,8 +100,8 @@ class CastGenerator
             final CppStruct cppStruct = t.first();
             final CppStruct ueStruct = t.second();
 
-            ns.add(generateCast(cppStruct, ueStruct, this::generateProtoToUeCast, this::getPostProtoToUeCast )); //(protoField, ueField) -> { return String.join(lineSeparator(), generateProtoToUeCast(protoField, ueField), getPostProtoToUeCast(cppStruct, ueStruct));}));
-            ns.add(generateCast(ueStruct, cppStruct, this::generateUeToProtoCast, this::getPostUeToProtoCast )); // (ueField, protoField) -> { return String.join(lineSeparator(), generateUeToProtoCast(protoField, ueField), getPostUeToProtoCast(cppStruct, ueStruct)); }));
+            ns.add(generateCast(cppStruct, ueStruct, CastGenerator::generateProtoToUeCast, this::getPostProtoToUeCast )); //(protoField, ueField) -> { return String.join(lineSeparator(), generateProtoToUeCast(protoField, ueField), getPostProtoToUeCast(cppStruct, ueStruct));}));
+            ns.add(generateCast(ueStruct, cppStruct, CastGenerator::generateUeToProtoCast, this::getPostUeToProtoCast )); // (ueField, protoField) -> { return String.join(lineSeparator(), generateUeToProtoCast(protoField, ueField), getPostUeToProtoCast(cppStruct, ueStruct)); }));
         });
 
         ns.setResidence(Cpp);
@@ -179,7 +179,7 @@ class CastGenerator
         return castFunction;
     }
 
-    private String generateProtoToUeCast(CppField inField, CppField outField)
+    public static String generateProtoToUeCast(CppField inField, CppField outField)
     {
         final CppType inType = inField.getType();
         final CppType outType = outField.getType();
@@ -210,7 +210,7 @@ class CastGenerator
         }
     }
 
-    private String generateUeToProtoCast(CppField inField, CppField outField)
+    public static String generateUeToProtoCast(CppField inField, CppField outField)
     {
         final CppType inType = inField.getType();
         final CppType outType = outField.getType();
@@ -289,7 +289,7 @@ class CastGenerator
         return completeCast;
     }
 
-    private CastMethod getCastMethod(CppType typeToCast)
+    private static CastMethod getCastMethod(CppType typeToCast)
     {
         if (typeToCast.isArray())
         {

@@ -109,13 +109,8 @@ class OneOfGenerator {
         return new CppArgument(argument.getType().makeRef(constant, false), argument.getName());
     }
 
-    private static CppClass generateOneOfCasts(final OneOfDefinition oneOfDefinition) {
-        final CppType castHelperClass = CppType.wildcardGeneric("TOneOfHelpers", Kind.Struct, 2);
-
-        final CppType castHelperSpecialized = castHelperClass.makeGeneric(oneOfDefinition.messageUnrealStruct.getType(),
-                oneOfDefinition.messageProtoStruct.getType());
-                
-
+    private CppFunction generateProtoToUeCast(final OneOfDefinition oneOfDefinition)
+    {
         final CppArgument protoArgument = new CppArgument(oneOfDefinition.messageProtoStruct.getType(), "ProtoMessage");
 
         final CppArgument ueArgument = new CppArgument(oneOfDefinition.messageUnrealStruct.getType(), "UnrealMessage");
@@ -123,7 +118,8 @@ class OneOfGenerator {
         final CppFunction protoToUnreal = new CppFunction("LoadFromProto", CppType.plain("void", Kind.Primitive),
                 Arrays.asList(makeRef(protoArgument, true), makeRef(ueArgument, false)));
 
-        OneOfInStruct currentOneOf = oneOfDefinition.oneOfStructs.get(0);
+
+        final OneOfInStruct currentOneOf = oneOfDefinition.oneOfStructs.get(0);
 
         CppEnum caseValues = generateOneOfEnum(currentOneOf);
 
@@ -137,26 +133,49 @@ class OneOfGenerator {
 
         protoToUnreal.setBody(String.join(System.lineSeparator(),
                 protoCaseEnumName + " ProtoCase = ProtoMessage." + protoCaseEnumGetMethodName + "();",
-                ueCaseEnumName + " UeCase = static_cast<uint8>(ProtoCase);",
                 oneOfStruct.getType().getName() + " UeOneOf;", "switch (ProtoCase)", "{",
-                oneOfStruct.getFields().stream().map((field) -> {
-                    String protoGetMethodName = field.getName();
+                
+                currentOneOf.oneOfElement.fields().stream().map(
+                    (fieldElement) -> {
+                        return String.join(
+                            System.lineSeparator()
+                            , "case " + fieldElement.tag() + ":"
+                            , "{"
+                            , "TValueBox<" + ueProvider.get(fieldElement.type()) + "> OutItem;"
+                            , CastGenerator.generateProtoToUeCast(new CppField(ueProvider.get(fieldElement.type()), "Value"), ProtoProcessor.ParseField(protoProvider, fieldElement))
+                            , "UnrealMessage.Set(OutItem.GetValue(), " + fieldElement.tag() + ");"
+                            , "break;"
+                            , "}"
+                        );
+                    }
+                ).collect(Collectors.joining(System.lineSeparator()))
+                , "}"));
 
-                    String ueSetMethodName = "Set" + field.getName();
+        return protoToUnreal;
+    }
 
-                    return String.join(System.lineSeparator(), "case " + field.getName() + ":",
-                            "\tUeOneOf." + ueSetMethodName + "(ProtoCast<" + field.getType().getName()
-                                    + ">(ProtoMessage." + protoGetMethodName + "());",
-                            "\tbreak;");
-                }).collect(Collectors.joining()), "}"));
+    private CppClass generateOneOfCasts(final OneOfDefinition oneOfDefinition) {
+        final CppType castHelperClass = CppType.wildcardGeneric("TOneOfHelpers", Kind.Struct, 2);
+
+        final CppType castHelperSpecialized = castHelperClass.makeGeneric(oneOfDefinition.messageUnrealStruct.getType(),
+                oneOfDefinition.messageProtoStruct.getType());
+
+        final CppArgument protoArgument = new CppArgument(oneOfDefinition.messageProtoStruct.getType(), "ProtoMessage");
+
+        final CppArgument ueArgument = new CppArgument(oneOfDefinition.messageUnrealStruct.getType(), "UnrealMessage");
 
         final CppFunction unrealToProto = new CppFunction("SaveToProto", CppType.plain("void", Kind.Primitive),
                 Arrays.asList(makeRef(ueArgument, true), makeRef(protoArgument, false)));
 
         final CppClass Specialization = new CppClass(castHelperSpecialized, /* superType = */ null, new ArrayList<>(),
-                Arrays.asList(protoToUnreal, unrealToProto));
+                Arrays.asList(generateProtoToUeCast(oneOfDefinition), unrealToProto));
 
         return Specialization;
+    }
+
+    private CppField getProtoField(final CppStruct messageProtoStruct, final OneOfInStruct currentOneOf,
+            final CppField uefield) {
+        return ProtoProcessor.ParseField(protoProvider, currentOneOf.oneOfElement.fields().get(currentOneOf.oneOfUnrealStruct.getFields().indexOf(uefield)));
     }
 
     private CppClass generateHelpersClass(final OneOfDefinition oneOfDefinition) {

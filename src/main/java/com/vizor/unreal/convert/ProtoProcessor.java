@@ -329,15 +329,18 @@ class ProtoProcessor implements Runnable
         fieldAnnotations.add(BlueprintReadWrite);
 
         final List<CppField> fields = new ArrayList<>();
+        
+        final List<FieldElement> fieldElements = new ArrayList<>();
 
         for (final FieldElement fe : oe.fields()) {
             final CppType fieldUeType = provider.get(fe.type());
 
             final CppField ueField = new CppField(fieldUeType, fe.name());
-
+            
             ueField.addAnnotation(fieldAnnotations);
-
             fields.add(ueField);
+
+            fieldElements.add(fe);
         }
 
         CppEnum oneOfCaseEnum = new CppEnum(CppType.plain(oe.name() + "case", Enum), oe.fields().stream()
@@ -415,28 +418,28 @@ class ProtoProcessor implements Runnable
 
     public static CppField ParseField(TypesProvider provider, FieldElement fe) {
         
-            // Get the type
-            final CppType ueType = provider.get(fe.type());
+        // Get the type
+        final CppType ueType = provider.get(fe.type());
 
-            // If the field is repeated - make a TArray<?> of type.
-            final CppField field;
-            if (fe.label() == REPEATED)
-            {
-                final CppType ueArrayType = provider.arrayOf(ueType);
-                field = new CppField(ueArrayType, provider.fixFieldName(fe.name(), false));
-            }
-            else
-            {
-                final String fieldName = provider.fixFieldName(fe.name(), ueType.isA(boolean.class));
-                field = new CppField(ueType, fieldName);
-            }
+        // If the field is repeated - make a TArray<?> of type.
+        final CppField field;
+        if (fe.label() == REPEATED)
+        {
+            final CppType ueArrayType = provider.arrayOf(ueType);
+            field = new CppField(ueArrayType, provider.fixFieldName(fe.name(), false));
+        }
+        else
+        {
+            final String fieldName = provider.fixFieldName(fe.name(), ueType.isA(boolean.class));
+            field = new CppField(ueType, fieldName);
+        }
 
-            // Add docs if has any
-            final String sourceDoc = fe.documentation();
-            if (!sourceDoc.isEmpty())
-                field.javaDoc.set(sourceDoc);
+        // Add docs if has any
+        final String sourceDoc = fe.documentation();
+        if (!sourceDoc.isEmpty())
+            field.javaDoc.set(sourceDoc);
 
-                return field;
+        return field;
     }
 
     private CppEnum extractEnum(final TypesProvider provider, final EnumElement ee)
