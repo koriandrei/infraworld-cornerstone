@@ -54,31 +54,52 @@ void FTest_SampleMessageOneOfHelpers::Setsub_message(const FTest_OneOf_test_oneo
 }
 
 
-void TOneOfHelpers<FTest_SampleMessage, SampleMessage>::LoadFromProto(const SampleMessage& ProtoMessage, const FTest_SampleMessage& UnrealMessage)
+void TOneOfHelpers<FTest_SampleMessage, SampleMessage>::LoadFromProto(const SampleMessage& Item, const FTest_SampleMessage& UnrealMessage)
 {
-    test_oneofcase ProtoCase = ProtoMessage.test_oneofcase();
-    FTest_OneOf_test_oneof UeOneOf;
+    {
+    	test_oneofcase ProtoCase = ProtoMessage.test_oneofcase();
+    	FTest_OneOf_test_oneof UeOneOf;
     switch (ProtoCase)
     {
-    case 4:
-    {
-    TValueBox<FString> OutItem;
-    OutItem.name = Proto_Cast<std::string>(Item.Value());
-    UnrealMessage.Set(OutItem.GetValue(), 4);
-    break;
-    }
-    case 9:
-    {
-    TValueBox<float> OutItem;
-    OutItem.sub_message = Proto_Cast<google::protobuf::float>(Item.Value());
-    UnrealMessage.Set(OutItem.GetValue(), 9);
-    break;
-    }
+    		case 4:
+    		{
+    			TValueBox<FString> OutItem;
+    			OutItem.Value = Proto_Cast<FString>(Item.name());
+    			UnrealMessage.Set(OutItem.GetValue(), 4);
+    			break;
+    		}
+    		case 9:
+    		{
+    			TValueBox<float> OutItem;
+    			OutItem.Value = Proto_Cast<float>(Item.sub_message());
+    			UnrealMessage.Set(OutItem.GetValue(), 9);
+    			break;
+    		}
+    	}
     }
 }
 
-void TOneOfHelpers<FTest_SampleMessage, SampleMessage>::SaveToProto(const FTest_SampleMessage& UnrealMessage, const SampleMessage& ProtoMessage)
+void TOneOfHelpers<FTest_SampleMessage, SampleMessage>::SaveToProto(const FTest_SampleMessage& UnrealMessage, const SampleMessage& OutItem)
 {
+    {
+    	switch (UnrealMessage.GetCurrentTypeId())
+    	{
+    		case 4:
+    		{
+    			TValueBox<FString> Item;
+    			ensure(UnrealMessage.TryGet(Item.Value, 4);
+    			OutItem.set_name(Proto_Cast<std::string>(Item.Value));
+    			break;
+    		}
+    		case 9:
+    		{
+    			TValueBox<float> Item;
+    			ensure(UnrealMessage.TryGet(Item.Value, 9);
+    			OutItem.set_sub_message(Proto_Cast<google::protobuf::float>(Item.Value));
+    			break;
+    		}
+    	}
+    }
 }
 
 namespace casts

@@ -101,10 +101,10 @@ struct INFRAWORLDCLIENTDEMO_API TOneOfHelpers<FTest_SampleMessage, SampleMessage
 
     // Methods
     UFUNCTION()
-    void LoadFromProto(const SampleMessage& ProtoMessage, const FTest_SampleMessage& UnrealMessage);
+    void LoadFromProto(const SampleMessage& Item, const FTest_SampleMessage& UnrealMessage);
 
     UFUNCTION()
-    void SaveToProto(const FTest_SampleMessage& UnrealMessage, const SampleMessage& ProtoMessage);
+    void SaveToProto(const FTest_SampleMessage& UnrealMessage, const SampleMessage& OutItem);
 };
 
 // Forward class definitions (for delegates)
