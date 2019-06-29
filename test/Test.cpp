@@ -17,6 +17,25 @@
 #include "GrpcIncludesEnd.h"
 
 
+
+template <T>
+bool FTest_InnerMessageOneOfHelpers::TryGetValue()
+{
+    return false;
+}
+
+
+void TOneOfHelpers<FTest_InnerMessage, InnerMessage>::LoadFromProto(const InnerMessage& Item, const FTest_InnerMessage& UnrealMessage)
+{
+
+}
+
+void TOneOfHelpers<FTest_InnerMessage, InnerMessage>::SaveToProto(const FTest_InnerMessage& UnrealMessage, const InnerMessage& OutItem)
+{
+
+}
+
+
 template <T>
 bool FTest_SampleMessageOneOfHelpers::TryGetValue()
 {
@@ -53,6 +72,36 @@ void FTest_SampleMessageOneOfHelpers::Setsub_message(const FTest_OneOf_test_oneo
     Self.Set(OneOfValue, 9);
 }
 
+FTest_OneOf_OneOf2 FTest_SampleMessageOneOfHelpers::CreateFromsomeId(const FString& OneOfValue)
+{
+    return FTest_OneOf_OneOf2::Create(OneOfValue, 2);
+}
+
+bool FTest_SampleMessageOneOfHelpers::TryGetsomeId(const FTest_OneOf_OneOf2& Self, const FString& OutOneOfValue) const
+{
+    return Self.TryGet(OutOneOfValue, 2);
+}
+
+void FTest_SampleMessageOneOfHelpers::SetsomeId(const FTest_OneOf_OneOf2& Self, const FString& OneOfValue)
+{
+    Self.Set(OneOfValue, 2);
+}
+
+FTest_OneOf_OneOf2 FTest_SampleMessageOneOfHelpers::CreateFrominner(const FTest_InnerMessage& OneOfValue)
+{
+    return FTest_OneOf_OneOf2::Create(OneOfValue, 10);
+}
+
+bool FTest_SampleMessageOneOfHelpers::TryGetinner(const FTest_OneOf_OneOf2& Self, const FTest_InnerMessage& OutOneOfValue) const
+{
+    return Self.TryGet(OutOneOfValue, 10);
+}
+
+void FTest_SampleMessageOneOfHelpers::Setinner(const FTest_OneOf_OneOf2& Self, const FTest_InnerMessage& OneOfValue)
+{
+    Self.Set(OneOfValue, 10);
+}
+
 
 void TOneOfHelpers<FTest_SampleMessage, SampleMessage>::LoadFromProto(const SampleMessage& Item, const FTest_SampleMessage& UnrealMessage)
 {
@@ -65,37 +114,83 @@ void TOneOfHelpers<FTest_SampleMessage, SampleMessage>::LoadFromProto(const Samp
     		{
     			TValueBox<FString> OutItem;
     			OutItem.Value = Proto_Cast<FString>(Item.name());
-    			UnrealMessage.Set(OutItem.GetValue(), 4);
+    			UeOneOf.Set(OutItem.GetValue(), 4);
     			break;
     		}
     		case 9:
     		{
     			TValueBox<float> OutItem;
     			OutItem.Value = Proto_Cast<float>(Item.sub_message());
-    			UnrealMessage.Set(OutItem.GetValue(), 9);
+    			UeOneOf.Set(OutItem.GetValue(), 9);
     			break;
     		}
     	}
+    UnrealMessage.test_oneof = UeOneOf;
+    }
+    {
+    	OneOf2case ProtoCase = ProtoMessage.OneOf2case();
+    	FTest_OneOf_OneOf2 UeOneOf;
+    switch (ProtoCase)
+    {
+    		case 2:
+    		{
+    			TValueBox<FString> OutItem;
+    			OutItem.Value = Proto_Cast<FString>(Item.someid());
+    			UeOneOf.Set(OutItem.GetValue(), 2);
+    			break;
+    		}
+    		case 10:
+    		{
+    			TValueBox<FTest_InnerMessage> OutItem;
+    			OutItem.Value = Proto_Cast<FTest_InnerMessage>(Item.inner());
+    			UeOneOf.Set(OutItem.GetValue(), 10);
+    			break;
+    		}
+    	}
+    UnrealMessage.OneOf2 = UeOneOf;
     }
 }
 
 void TOneOfHelpers<FTest_SampleMessage, SampleMessage>::SaveToProto(const FTest_SampleMessage& UnrealMessage, const SampleMessage& OutItem)
 {
     {
-    	switch (UnrealMessage.GetCurrentTypeId())
+    	FTest_OneOf_test_oneof UeOneOf = UnrealMessage.test_oneof;
+    	switch (UeOneOf.GetCurrentTypeId())
     	{
     		case 4:
     		{
     			TValueBox<FString> Item;
-    			ensure(UnrealMessage.TryGet(Item.Value, 4);
+    			ensure(UeOneOf.TryGet(Item.Value, 4);
     			OutItem.set_name(Proto_Cast<std::string>(Item.Value));
     			break;
     		}
     		case 9:
     		{
     			TValueBox<float> Item;
-    			ensure(UnrealMessage.TryGet(Item.Value, 9);
+    			ensure(UeOneOf.TryGet(Item.Value, 9);
     			OutItem.set_sub_message(Proto_Cast<google::protobuf::float>(Item.Value));
+    			break;
+    		}
+    	}
+    }
+    {
+    	FTest_OneOf_OneOf2 UeOneOf = UnrealMessage.OneOf2;
+    	switch (UeOneOf.GetCurrentTypeId())
+    	{
+    		case 2:
+    		{
+    			TValueBox<FString> Item;
+    			ensure(UeOneOf.TryGet(Item.Value, 2);
+    			OutItem.set_someid(Proto_Cast<std::string>(Item.Value));
+    			break;
+    		}
+    		case 10:
+    		{
+    			TValueBox<FTest_InnerMessage> Item;
+    			ensure(UeOneOf.TryGet(Item.Value, 10);
+    			InnerMessage CastedStruct_inner = Proto_Cast<InnerMessage>(Item.Value);
+    // ! Need to instantiate a new InnerMessage to be possessed by the outer item
+    OutItem.set_allocated_inner(new InnerMessage(CastedStruct_inner));
     			break;
     		}
     	}
@@ -104,6 +199,30 @@ void TOneOfHelpers<FTest_SampleMessage, SampleMessage>::SaveToProto(const FTest_
 
 namespace casts
 {
+    template <>
+    FORCEINLINE FTest_InnerMessage Proto_Cast(const InnerMessage& Item)
+    {
+        FTest_InnerMessage OutItem;
+
+        // FTest_InnerMessage::Field <- InnerMessage::field
+        // Primitive (float) <- Primitive (google::protobuf::float)
+        OutItem.Field = Proto_Cast<float>(Item.field());
+
+        TOneOfHelpers<FTest_InnerMessage, InnerMessage>::LoadFromProto(OutItem, Item);return OutItem;
+    }
+
+    template <>
+    FORCEINLINE InnerMessage Proto_Cast(const FTest_InnerMessage& Item)
+    {
+        InnerMessage OutItem;
+
+        // InnerMessage::field <- FTest_InnerMessage::Field
+        // Primitive (google::protobuf::float) <- Primitive (float)
+        OutItem.set_field(Proto_Cast<google::protobuf::float>(Item.Field));
+
+        TOneOfHelpers<FTest_InnerMessage, InnerMessage>::SaveToProto(Item, OutItem);return OutItem;
+    }
+
     template <>
     FORCEINLINE FTest_SampleMessage Proto_Cast(const SampleMessage& Item)
     {

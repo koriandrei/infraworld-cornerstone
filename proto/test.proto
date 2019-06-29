@@ -1,9 +1,19 @@
 syntax="proto3";
 
+message InnerMessage {
+  float field = 1;
+}
+
 message SampleMessage {
   oneof test_oneof {
     string name = 4;
     float sub_message = 9;
+  }
+
+
+  oneof OneOf2 {
+    string someId = 2;
+    InnerMessage inner = 10;
   }
 
   string otherName = 6;

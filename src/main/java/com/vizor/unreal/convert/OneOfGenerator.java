@@ -175,16 +175,20 @@ class OneOfGenerator {
                                         ProtoProcessor.ParseField(protoProvider, fieldElement),
                                         new CppField(ueProvider.get(fieldElement.type()), "Value")
                                     ),
-                            "\t\t\tUnrealMessage.Set(OutItem.GetValue(), " + fieldElement.tag() + ");", 
+                            "\t\t\tUeOneOf.Set(OutItem.GetValue(), " + fieldElement.tag() + ");", 
                             "\t\t\tbreak;",
                             "\t\t}");
-                    }).collect(Collectors.joining(System.lineSeparator())), "\t}", "}");
+                    }).collect(Collectors.joining(System.lineSeparator())),
+                    "\t}", 
+                    "UnrealMessage." + currentOneOf.oneOfElement.name() + " = UeOneOf;",
+                    "}");
         }
         else
         {
             return String.join(System.lineSeparator()
             , "{"
-            , "\tswitch (UnrealMessage.GetCurrentTypeId())"
+            , "\t" + oneOfStruct.getType().makeRef(true, false).getName() + " UeOneOf = UnrealMessage." + currentOneOf.oneOfElement.name() + ";"
+            , "\tswitch (UeOneOf.GetCurrentTypeId())"
             , "\t{"
             , currentOneOf.oneOfElement.fields().stream().map((fieldElement)->
                 String.join(
@@ -192,7 +196,7 @@ class OneOfGenerator {
                     , "\t\tcase " + fieldElement.tag() + ":"
                     , "\t\t{"
                     , "\t\t\tTValueBox<" + ueProvider.get(fieldElement.type()) + "> Item;"
-                    , "\t\t\tensure(UnrealMessage.TryGet(Item.Value, " + fieldElement.tag() +  ");"
+                    , "\t\t\tensure(UeOneOf.TryGet(Item.Value, " + fieldElement.tag() +  ");"
                     , "\t\t\t" + CastGenerator.generateUeToProtoCast(
                             new CppField(ueProvider.get(fieldElement.type()), "Value"), 
                             ProtoProcessor.ParseField(protoProvider, fieldElement)

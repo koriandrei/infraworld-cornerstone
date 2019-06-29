@@ -22,7 +22,25 @@ enum class test_oneofcase : uint8
     sub_message = 9,
 };
 
+UENUM()
+enum class OneOf2case : uint8
+{
+    someId = 2,
+    inner = 10,
+};
+
 // Structures:
+USTRUCT(BlueprintType, meta=(DisplayName="Test InnerMessage"))
+struct INFRAWORLDCLIENTDEMO_API FTest_InnerMessage
+{
+    GENERATED_USTRUCT_BODY()
+
+public:
+    // Conduits and GRPC stub
+    UPROPERTY(BlueprintReadWrite, Transient)
+    float Field;
+};
+
 UCLASS()
 struct INFRAWORLDCLIENTDEMO_API FTest_OneOf_test_oneof : public TAnyOf<TTypeIntegerPair<FString, int>, TTypeIntegerPair<float, int>>
 {
@@ -42,6 +60,25 @@ public:
 
 };
 
+UCLASS()
+struct INFRAWORLDCLIENTDEMO_API FTest_OneOf_OneOf2 : public TAnyOf<TTypeIntegerPair<FString, int>, TTypeIntegerPair<FTest_InnerMessage, int>>
+{
+    GENERATED_BODY()
+
+public:
+    // Conduits and GRPC stub
+    UPROPERTY(BlueprintReadWrite, Transient)
+    FString someId;
+
+    UPROPERTY(BlueprintReadWrite, Transient)
+    FTest_InnerMessage inner;
+
+    UPROPERTY()
+    OneOf2case OneOfCase;
+
+
+};
+
 USTRUCT(BlueprintType, meta=(DisplayName="Test SampleMessage"))
 struct INFRAWORLDCLIENTDEMO_API FTest_SampleMessage
 {
@@ -57,9 +94,35 @@ public:
 
     UPROPERTY()
     FTest_OneOf_test_oneof test_oneof;
+
+    UPROPERTY()
+    FTest_OneOf_OneOf2 OneOf2;
 };
 
 // Extras:
+UCLASS()
+class INFRAWORLDCLIENTDEMO_API FTest_InnerMessageOneOfHelpers
+{
+    GENERATED_BODY()
+
+    // Methods
+    template <T>
+    bool TryGetValue();
+};
+
+UCLASS()
+struct INFRAWORLDCLIENTDEMO_API TOneOfHelpers<FTest_InnerMessage, InnerMessage>
+{
+    GENERATED_BODY()
+
+    // Methods
+    UFUNCTION()
+    void LoadFromProto(const InnerMessage& Item, const FTest_InnerMessage& UnrealMessage);
+
+    UFUNCTION()
+    void SaveToProto(const FTest_InnerMessage& UnrealMessage, const InnerMessage& OutItem);
+};
+
 UCLASS()
 class INFRAWORLDCLIENTDEMO_API FTest_SampleMessageOneOfHelpers
 {
@@ -92,6 +155,30 @@ class INFRAWORLDCLIENTDEMO_API FTest_SampleMessageOneOfHelpers
     UFUNCTION(BlueprintCallable)
     static
     void Setsub_message(const FTest_OneOf_test_oneof& Self, const float& OneOfValue);
+
+    UFUNCTION(BlueprintCallable)
+    static
+    FTest_OneOf_OneOf2 CreateFromsomeId(const FString& OneOfValue);
+
+    UFUNCTION(BlueprintCallable)
+    static
+    bool TryGetsomeId(const FTest_OneOf_OneOf2& Self, const FString& OutOneOfValue) const;
+
+    UFUNCTION(BlueprintCallable)
+    static
+    void SetsomeId(const FTest_OneOf_OneOf2& Self, const FString& OneOfValue);
+
+    UFUNCTION(BlueprintCallable)
+    static
+    FTest_OneOf_OneOf2 CreateFrominner(const FTest_InnerMessage& OneOfValue);
+
+    UFUNCTION(BlueprintCallable)
+    static
+    bool TryGetinner(const FTest_OneOf_OneOf2& Self, const FTest_InnerMessage& OutOneOfValue) const;
+
+    UFUNCTION(BlueprintCallable)
+    static
+    void Setinner(const FTest_OneOf_OneOf2& Self, const FTest_InnerMessage& OneOfValue);
 };
 
 UCLASS()
