@@ -246,15 +246,19 @@ class ProtoProcessor implements Runnable
         @SuppressWarnings("unused")
         final boolean ignore = get(outDirPath).toFile().mkdirs();
 
-        final List<CppInclude> headerIncludes = asList(
+        final List<CppInclude> headerIncludes = new ArrayList<>(asList(
             // header
             new CppInclude(Header, "CoreMinimal.h"),
             new CppInclude(Header, "Conduit.h"),
             new CppInclude(Header, "GenUtils.h"),
-            new CppInclude(Header, "RpcClient.h"),
-            new CppInclude(Header, className + ".generated.h")
-        );
+            new CppInclude(Header, "RpcClient.h")
+        ));
 
+        oneOfGenerator.addIncludes(headerIncludes);
+
+        headerIncludes.add(new CppInclude(Header, className + ".generated.h"));
+
+        
         final Config config = Config.get();
 
         // TODO: Fix paths
@@ -281,6 +285,7 @@ class ProtoProcessor implements Runnable
 
         if (!stringIsNullOrEmpty(config.getPrecompiledHeader()))
             cppIncludes.add(0, new CppInclude(Cpp, config.getPrecompiledHeader(), false));
+
 
         final Path outFilePath = get(outDirPath, className);
 

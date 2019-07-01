@@ -188,6 +188,9 @@ public class CppPrinter implements AutoCloseable
         // Write namespaces (if have some)
         type.getNamespaces().forEach(ns -> write(ns.getName()).write("::"));
 
+        if (type.isConstant())
+            write("const ");
+
         // Write type name
         write(type.getName());
 
@@ -385,7 +388,7 @@ public class CppPrinter implements AutoCloseable
 
         // Same with 'static'
         if (f.isStatic && !isCppDefinition)
-            writeLine("static ");
+            write("static ");
 
         f.getReturnType().accept(this).write(" ");
 
@@ -416,9 +419,6 @@ public class CppPrinter implements AutoCloseable
     public void accept(CppArgument cppArgument)
     {
         final CppType type = cppArgument.getType();
-
-        if (type.getPassage() == CppType.Passage.ByRef)
-            write("const ");
 
         type.accept(this);
 

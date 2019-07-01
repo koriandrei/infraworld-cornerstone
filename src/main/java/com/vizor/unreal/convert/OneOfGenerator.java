@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
@@ -17,13 +19,16 @@ import com.vizor.unreal.tree.CppAnnotation;
 import com.vizor.unreal.tree.CppArgument;
 import com.vizor.unreal.tree.CppClass;
 import com.vizor.unreal.tree.CppEnum;
+import com.vizor.unreal.tree.CppEnumElement;
 import com.vizor.unreal.tree.CppField;
 import com.vizor.unreal.tree.CppFunction;
 import com.vizor.unreal.tree.CppRecord;
 import com.vizor.unreal.tree.CppStruct;
 import com.vizor.unreal.tree.CppType;
+import com.vizor.unreal.tree.CppRecord.Residence;
 import com.vizor.unreal.tree.CppType.Kind;
 import com.vizor.unreal.tree.CppType.Passage;
+import com.vizor.unreal.tree.preprocessor.CppInclude;
 import com.vizor.unreal.util.Tuple;
 
 class OneOfDefinition {
@@ -54,6 +59,12 @@ class OneOfInStruct {
     public List<CppField> fields;
     public CppStruct oneOfUnrealStruct;
     public OneOfElement oneOfElement;
+
+	public String getEnumEntryName(FieldElement fieldElement) {
+        CppEnumElement boundEnumElement = Objects.requireNonNull(oneOfCaseEnum.getCppEnumElements().stream().filter((enumEntry) -> enumEntry.getValue() == fieldElement.tag()).findAny().orElse(null));
+        
+        return oneOfCaseEnum.getType().getName() + "::" + boundEnumElement.getName();
+	}
 }
 
 class OneOfGenerator {
@@ -65,82 +76,6 @@ class OneOfGenerator {
         this.ueProvider = ueProvider;
         this.protoProvider = protoProvider;
         this.oneOfs = oneOfs;
-    }
-
-    private static CppFunction generateTryGet() {
-        final CppType templateType = CppType.plain("T", Kind.Wildcard);
-
-        final List<CppType> templateArgs = new ArrayList<>();
-        templateArgs.add(templateType);
-
-        final CppArgument outValueArgument = new CppArgument(templateType.makeRef(), "OutValue");
-
-        final List<CppArgument> arguments = new ArrayList<>();
-        arguments.add(outValueArgument);
-
-        final CppFunction templatedGetOneOf = new CppFunction("TryGetValue", CppType.plain("bool", Kind.Primitive),
-                new ArrayList<>(), templateArgs);
-
-        templatedGetOneOf.setBody("return false;");
-
-        templatedGetOneOf.enableAnnotations(false);
-
-        return templatedGetOneOf;
-    }
-
-    private static CppFunction generateCreateFunction(final CppType oneOfType, final CppEnum caseEnumType,
-            final int CaseEnumValue, final CppType typeToGenerateFor) {
-        List<CppArgument> arguments = new ArrayList<>();
-
-        arguments.add(new CppArgument(typeToGenerateFor.makeConstant(Passage.ByRef), "OneOfValue"));
-
-        CppFunction createFunction = new CppFunction(
-                "Create" + oneOfType.getName() + "From" + typeToGenerateFor.getName(), oneOfType, arguments);
-
-        createFunction.isStatic = true;
-
-        createFunction.setBody(String.join(System.lineSeparator(), oneOfType.getName() + " OneOf;",
-                "OneOf.Set(OneOfValue);", "return OneOf;"));
-
-        return createFunction;
-    }
-
-    private static CppArgument makeRef(final CppArgument argument, final boolean constant) {
-        return new CppArgument(argument.getType().makeRef(constant, false), argument.getName());
-    }
-
-    private CppFunction generateProtoToUeCast(final OneOfDefinition oneOfDefinition) {
-        final CppArgument protoArgument = new CppArgument(oneOfDefinition.messageProtoStruct.getType(), "ProtoMessage");
-
-        final CppArgument ueArgument = new CppArgument(oneOfDefinition.messageUnrealStruct.getType(), "UnrealMessage");
-
-        final CppFunction protoToUnreal = new CppFunction("LoadFromProto", CppType.plain("void", Kind.Primitive),
-                Arrays.asList(makeRef(protoArgument, true), makeRef(ueArgument, false)));
-
-        final OneOfInStruct currentOneOf = oneOfDefinition.oneOfStructs.get(0);
-
-        CppEnum caseValues = generateOneOfEnum(currentOneOf);
-
-        String protoCaseEnumName = caseValues.getType().getName();
-        String protoCaseEnumGetMethodName = caseValues.getType().getName();
-
-        CppStruct oneOfStruct = currentOneOf.oneOfUnrealStruct;
-
-        protoToUnreal.setBody(String.join(System.lineSeparator(),
-                protoCaseEnumName + " ProtoCase = ProtoMessage." + protoCaseEnumGetMethodName + "();",
-                oneOfStruct.getType().getName() + " UeOneOf;", "switch (ProtoCase)", "{",
-
-                currentOneOf.oneOfElement.fields().stream().map((fieldElement) -> {
-                    return String.join(System.lineSeparator(), "\tcase " + fieldElement.tag() + ":", "\t{",
-                            "\t\tTValueBox<" + ueProvider.get(fieldElement.type()) + "> OutItem;",
-                            "\t\t" + CastGenerator.generateProtoToUeCast(
-                                    ProtoProcessor.ParseField(protoProvider, fieldElement),
-                                    new CppField(ueProvider.get(fieldElement.type()), "Value")),
-                            "\t\tUnrealMessage.Set(OutItem.GetValue(), " + fieldElement.tag() + ");", "\t\tbreak;",
-                            "\t}");
-                }).collect(Collectors.joining(System.lineSeparator())), "}"));
-
-        return protoToUnreal;
     }
 
     private void generateCastBody(OneOfDefinition oneOfDefinition, CppFunction castFunction, boolean isProtoToUeCast) {
@@ -163,19 +98,25 @@ class OneOfGenerator {
         if (isProtoToUeCast) {
             return String.join(System.lineSeparator(),
                     "{",
+                    "\tusing namespace casts;",
                     "\t" + protoCaseEnumName + " ProtoCase = ProtoMessage." + protoCaseEnumGetMethodName + "();",
                     "\t" + oneOfStruct.getType().getName() + " UeOneOf;", "switch (ProtoCase)", "{",
 
+            
+
                     currentOneOf.oneOfElement.fields().stream().map((fieldElement) -> {
+
+                        final String enumEntryName = currentOneOf.getEnumEntryName(fieldElement);
+
                         return String.join(System.lineSeparator(), 
-                            "\t\tcase " + fieldElement.tag() + ":", 
+                            "\t\tcase " + enumEntryName + ":", 
                             "\t\t{",
                             "\t\t\tTValueBox<" + ueProvider.get(fieldElement.type()) + "> OutItem;",
                             "\t\t\t" + CastGenerator.generateProtoToUeCast(
                                         ProtoProcessor.ParseField(protoProvider, fieldElement),
                                         new CppField(ueProvider.get(fieldElement.type()), "Value")
                                     ),
-                            "\t\t\tUeOneOf.Set(OutItem.GetValue(), " + fieldElement.tag() + ");", 
+                            "\t\t\tUeOneOf.Set(OutItem.GetValue(), " + enumEntryName + ");", 
                             "\t\t\tbreak;",
                             "\t\t}");
                     }).collect(Collectors.joining(System.lineSeparator())),
@@ -187,23 +128,26 @@ class OneOfGenerator {
         {
             return String.join(System.lineSeparator()
             , "{"
+            , "\tusing namespace casts;"
             , "\t" + oneOfStruct.getType().makeRef(true, false).getName() + " UeOneOf = UnrealMessage." + currentOneOf.oneOfElement.name() + ";"
             , "\tswitch (UeOneOf.GetCurrentTypeId())"
             , "\t{"
-            , currentOneOf.oneOfElement.fields().stream().map((fieldElement)->
+            , currentOneOf.oneOfElement.fields().stream().map((fieldElement)-> { 
+                final String enumEntryName = currentOneOf.getEnumEntryName(fieldElement);
+                return
                 String.join(
                     System.lineSeparator()
-                    , "\t\tcase " + fieldElement.tag() + ":"
+                    , "\t\tcase " + enumEntryName + ":"
                     , "\t\t{"
                     , "\t\t\tTValueBox<" + ueProvider.get(fieldElement.type()) + "> Item;"
-                    , "\t\t\tensure(UeOneOf.TryGet(Item.Value, " + fieldElement.tag() +  ");"
+                    , "\t\t\tensure(UeOneOf.TryGet(Item.Value, " + enumEntryName +  ");"
                     , "\t\t\t" + CastGenerator.generateUeToProtoCast(
                             new CppField(ueProvider.get(fieldElement.type()), "Value"), 
                             ProtoProcessor.ParseField(protoProvider, fieldElement)
                         )
                     , "\t\t\tbreak;"
                     , "\t\t}"
-                )   
+                );}   
             ).collect(Collectors.joining(System.lineSeparator()))
             , "\t}"
             , "}"
@@ -217,15 +161,10 @@ class OneOfGenerator {
         final CppType castHelperSpecialized = castHelperClass.makeGeneric(oneOfDefinition.messageUnrealStruct.getType(),
                 oneOfDefinition.messageProtoStruct.getType());
 
-        final CppArgument protoArgument = new CppArgument(oneOfDefinition.messageProtoStruct.getType(), "ProtoMessage");
-
-        final CppArgument ueArgument = new CppArgument(oneOfDefinition.messageUnrealStruct.getType(), "UnrealMessage");
-
-        final CppFunction unrealToProto = new CppFunction("SaveToProto", CppType.plain("void", Kind.Primitive),
-                Arrays.asList(makeRef(ueArgument, true), makeRef(protoArgument, false)));
-
         final CppClass Specialization = new CppClass(castHelperSpecialized, /* superType = */ null, new ArrayList<>(),
                 generateProtoCasts(oneOfDefinition));
+
+        Specialization.setResidence(Residence.Cpp);
 
         return Specialization;
     }
@@ -250,12 +189,6 @@ class OneOfGenerator {
         return Arrays.asList(protoToUnreal, unrealToProto);
     }
 
-    private CppField getProtoField(final CppStruct messageProtoStruct, final OneOfInStruct currentOneOf,
-            final CppField uefield) {
-        return ProtoProcessor.ParseField(protoProvider,
-                currentOneOf.oneOfElement.fields().get(currentOneOf.oneOfUnrealStruct.getFields().indexOf(uefield)));
-    }
-
     private CppClass generateHelpersClass(final OneOfDefinition oneOfDefinition) {
         CppType type = CppType.plain("U" + oneOfDefinition.messageUnrealStruct.getType().getName() + "OneOfHelpers",
                 Kind.Class);
@@ -263,8 +196,6 @@ class OneOfGenerator {
         List<CppField> fields = new ArrayList<>();
 
         final List<CppFunction> methods = new ArrayList<>();
-
-        methods.add(generateTryGet());
 
         methods.addAll(oneOfDefinition.oneOfStructs.stream().flatMap((oneOfStruct) -> {
             return generateHelperClassFunctions(oneOfStruct);
@@ -274,33 +205,33 @@ class OneOfGenerator {
     }
 
     private Stream<CppFunction> generateHelperClassFunctions(OneOfInStruct oneOfStruct) {
-        CppArgument selfStructArgument = new CppArgument(oneOfStruct.oneOfUnrealStruct.getType().makeRef(), "Self");
+        CppArgument selfStructArgument = new CppArgument(oneOfStruct.oneOfUnrealStruct.getType().makeRef(), "OneOf");
 
         return oneOfStruct.oneOfElement.fields().stream().flatMap((fieldElement) -> {
+            final String enumEntryName = oneOfStruct.getEnumEntryName(fieldElement);
+
             CppFunction createFunction = new CppFunction("Create" + "From" + generateArgumentName(fieldElement),
                     oneOfStruct.oneOfUnrealStruct.getType(),
                     Arrays.asList(new CppArgument(getOneOfFieldType(fieldElement).makeConstant(Passage.ByRef),
                             "OneOfValue")));
 
             createFunction.setBody(
-                    String.join(System.lineSeparator(), "return " + oneOfStruct.oneOfUnrealStruct.getType().getName()
-                            + "::Create(OneOfValue, " + fieldElement.tag() + ");"));
+                    String.join(System.lineSeparator(), "return TTypeIdentified<" + oneOfStruct.oneOfCaseEnum.getType().getName() + ">::Create<" + oneOfStruct.oneOfUnrealStruct.getType().getName() + ", " + enumEntryName + ">("
+                            + "OneOfValue, " + enumEntryName + ");"));
 
             CppFunction getFunction = new CppFunction("TryGet" + generateArgumentName(fieldElement),
                     CppType.plain("bool", Kind.Primitive), Arrays.asList(selfStructArgument,
                             new CppArgument(getOneOfFieldType(fieldElement).makeRef(), "OutOneOfValue")));
 
-            getFunction.isConst = true;
-
             getFunction.setBody(String.join(System.lineSeparator(),
-                    "return Self.TryGet(OutOneOfValue, " + fieldElement.tag() + ");"));
+                    "return OneOf.TryGet(OutOneOfValue, " + enumEntryName + ");"));
 
             CppFunction setFunction = new CppFunction("Set" + generateArgumentName(fieldElement),
                     CppType.plain("void", Kind.Primitive), Arrays.asList(selfStructArgument, new CppArgument(
                             getOneOfFieldType(fieldElement).makeConstant(Passage.ByRef), "OneOfValue")));
 
             setFunction
-                    .setBody(String.join(System.lineSeparator(), "Self.Set(OneOfValue, " + fieldElement.tag() + ");"));
+                    .setBody(String.join(System.lineSeparator(), "OneOf.Set(OneOfValue, " + enumEntryName + ");"));
 
             return Arrays.asList(createFunction, getFunction, setFunction).stream().map((function) -> {
                 function.addAnnotation(CppAnnotation.BlueprintCallable);
@@ -348,5 +279,17 @@ class OneOfGenerator {
                     + ">::LoadFromProto(OutItem, Item);";
         };
     }
+
+	public void addIncludes(final List<CppInclude> cppIncludes) {
+        if (oneOfs.isEmpty())
+            return;
+
+        cppIncludes.addAll(
+            Arrays.asList(
+                new CppInclude(Residence.Header, "OneOf.h"),
+                new CppInclude(Residence.Header, "Variant.h")
+            )
+        );
+	}
 
 }
