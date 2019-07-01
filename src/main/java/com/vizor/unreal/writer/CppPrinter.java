@@ -362,7 +362,7 @@ public class CppPrinter implements AutoCloseable
                 throw new RuntimeException("A generic method '" + f.getName() + "' mustn't have any annotations");
 
             write("template <");
-            f.getGenericParams().forEach(p -> p.accept(this).write(commaSeparator));
+            f.getGenericParams().forEach(p -> { write("class "); p.accept(this).write(commaSeparator);});
 
             if (!f.getGenericParams().isEmpty())
                 backspace(commaSeparator.length());

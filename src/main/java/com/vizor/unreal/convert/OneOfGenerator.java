@@ -257,7 +257,7 @@ class OneOfGenerator {
     }
 
     private CppClass generateHelpersClass(final OneOfDefinition oneOfDefinition) {
-        CppType type = CppType.plain(oneOfDefinition.messageUnrealStruct.getType().getName() + "OneOfHelpers",
+        CppType type = CppType.plain("U" + oneOfDefinition.messageUnrealStruct.getType().getName() + "OneOfHelpers",
                 Kind.Class);
 
         List<CppField> fields = new ArrayList<>();
@@ -270,8 +270,7 @@ class OneOfGenerator {
             return generateHelperClassFunctions(oneOfStruct);
         }).collect(Collectors.toList()));
 
-        return new CppClass(type, null, fields, methods);
-
+        return new CppClass(type, CppType.plain("UObject", Kind.Class), fields, methods);
     }
 
     private Stream<CppFunction> generateHelperClassFunctions(OneOfInStruct oneOfStruct) {

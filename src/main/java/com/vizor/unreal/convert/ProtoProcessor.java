@@ -352,7 +352,7 @@ class ProtoProcessor implements Runnable
 
         final CppClass oneOfStruct = new CppClass(
             oneOfType, 
-            CppType.wildcardGeneric("TAnyOf", Kind.Struct, fields.size()).makeGeneric(
+            CppType.wildcardGeneric("TOneOf", Kind.Struct, fields.size()).makeGeneric(
                 oe.fields().stream().map((fe)->{
                     return CppType.wildcardGeneric("TTypeIntegerPair", Kind.Struct, 2).makeGeneric(
                         fields.get(oe.fields().indexOf(fe)).getType(), 

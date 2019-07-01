@@ -10,14 +10,14 @@ src_path: '/home/dmitrii/Source/infraworld-cornerstone/proto/'
 
 #
 # A path, where generated C++ classes should be placed.
-dst_path: '/home/dmitrii/Source/infraworld-cornerstone/'
+dst_path: '/home/dmitrii/Source/cornerstone_2/Plugins/GrpcServices/Source/GrpcServices/Public/'
 
 #
 # Name of the module (Needed to compute API, like MYMODULE_API)
 #
 # NOTE: Left it blank if you don't want to use API.
 # NOTE: If not left blank, it mustn't contain any spaces, this is checked in run-time.
-module_name: 'InfraworldClientDemo'
+module_name: 'GrpcServices'
 
 #
 # In case you're using precompiled headers - provide a valid relative or absolute path to the precompiled header.

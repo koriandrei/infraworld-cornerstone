@@ -23,6 +23,7 @@ import com.vizor.unreal.tree.CppField;
 import com.vizor.unreal.tree.CppFunction;
 import com.vizor.unreal.tree.CppRecord;
 import com.vizor.unreal.tree.CppStruct;
+import com.vizor.unreal.tree.CppType.Kind;
 import com.vizor.unreal.writer.CppPrinter;
 
 import java.util.Collection;
@@ -88,7 +89,19 @@ public class UEDecoratorWriter extends DummyDecoratorWriter
             final List<String> meta = getAnnotations(annotations, true);
 
             if (annotators.containsKey(clazz))
-                p.writeLine(annotators.get(clazz).apply(nonMeta, meta));
+            {
+                BiFunction<Collection<String>, Collection<String>, String> annotator = annotators.get(clazz);
+
+                if (e instanceof CppClass)
+                {
+                    if (((CppClass)e).getType().getKind() == Kind.Struct)
+                    {
+                        annotator = annotators.get(CppStruct.class);
+                    }
+                }
+
+                p.writeLine(annotator.apply(nonMeta, meta));
+            }
             else
                 throw new RuntimeException("Don't know how to annotate " + clazz.getSimpleName());
         }
