@@ -166,6 +166,8 @@ class OneOfGenerator {
 
         Specialization.setResidence(Residence.Cpp);
 
+        Specialization.enableAnnotations(false);
+
         return Specialization;
     }
 
@@ -185,6 +187,9 @@ class OneOfGenerator {
 
         generateCastBody(oneOfDefinition, protoToUnreal, true);
         generateCastBody(oneOfDefinition, unrealToProto, false);
+
+        protoToUnreal.enableAnnotations(false);
+        unrealToProto.enableAnnotations(false);
 
         return Arrays.asList(protoToUnreal, unrealToProto);
     }
