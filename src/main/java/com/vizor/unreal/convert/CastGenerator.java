@@ -21,6 +21,7 @@ import com.vizor.unreal.tree.CppFunction;
 import com.vizor.unreal.tree.CppNamespace;
 import com.vizor.unreal.tree.CppStruct;
 import com.vizor.unreal.tree.CppType;
+import com.vizor.unreal.tree.CppType.Passage;
 import com.vizor.unreal.util.Tuple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -124,7 +125,7 @@ class CastGenerator
                                      final BiFunction<CppField, CppField, String> genFunction,
                                      final BiFunction<CppStruct, CppStruct, String> postFunction)
     {
-        final CppType inType = inStruct.getType();
+        final CppType inType = inStruct.getType().makeConstant(Passage.ByRef);
         final CppType outType = outStruct.getType();
 
         final List<CppField> cppFields = inStruct.getFields();

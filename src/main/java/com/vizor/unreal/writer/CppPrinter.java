@@ -38,6 +38,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Stack;
 import java.util.function.Supplier;
 
 import static com.vizor.unreal.tree.CppRecord.Residence.Header;
@@ -71,6 +72,8 @@ public class CppPrinter implements AutoCloseable
     private final ContentWriter codeFile = new ContentWriter();
     private ContentWriter current = header;
 
+    private Stack<ContentWriter> writersStack;
+
     private final Path absPathToFile;
     private final DummyDecoratorWriter decoratorWriter;
 
@@ -78,6 +81,8 @@ public class CppPrinter implements AutoCloseable
     {
         this.absPathToFile = absPathToFile;
         this.decoratorWriter = new UEDecoratorWriter(apiName);
+
+        writersStack = new Stack<>();
 
         // Write header (copyright, etc.) to both .h and .cpp
         asList(header, codeFile).forEach(cw -> {
@@ -124,6 +129,16 @@ public class CppPrinter implements AutoCloseable
         current.newLine();
         return this;
     }
+
+	public CppPrinter pushResidence() {
+        writersStack.push(current);
+        return this;
+	}
+
+	public CppPrinter popResidence() {
+        current = writersStack.pop();
+        return this;
+	}
 
     private CppPrinter removeLine()
     {
@@ -190,6 +205,9 @@ public class CppPrinter implements AutoCloseable
 
         if (type.isConstant())
             write("const ");
+
+        if (type.getOuterType() != null)
+            type.getOuterType().accept(this).write("::");
 
         // Write type name
         write(type.getName());

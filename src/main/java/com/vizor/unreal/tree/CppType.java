@@ -99,6 +99,8 @@ public class CppType implements CtLeaf
 
     private final List<CppNamespace> namespaces = new ArrayList<>();
 
+    private final CppType outerType;
+
     private final String name;
     private final List<CppType> genericParams;
     private final Kind kind;
@@ -128,8 +130,15 @@ public class CppType implements CtLeaf
         this(name, kind, genericParams, null, Passage.ByValue, false, false);
     }
 
+
     private CppType(String name, Kind kind, Collection<CppType> genericParams, CppType underType, Passage passage,
                     boolean isConstant, boolean isVolatile)
+    {
+        this(name, kind, genericParams, underType, passage, isConstant, isVolatile, null);
+    }
+
+    private CppType(String name, Kind kind, Collection<CppType> genericParams, CppType underType, Passage passage,
+                    boolean isConstant, boolean isVolatile, CppType outerType)
     {
         stream(Passage.values()).forEach(p -> {
             if (name.endsWith(p.name()))
@@ -146,6 +155,8 @@ public class CppType implements CtLeaf
         this.passage = passage;
         this.isConstant = isConstant;
         this.isVolatile = isVolatile;
+
+        this.outerType = outerType;
     }
 
     public final boolean isArray()
@@ -269,12 +280,17 @@ public class CppType implements CtLeaf
         return passage;
     }
 
+    public CppType getOuterType()
+    {
+        return outerType;
+    }
+
     private CppType makeHybrid(final List<CppType> genericParams,
                                final Passage passage,
                                final boolean isConstant,
                                final boolean isVolatile)
     {
-        final CppType cppType = new CppType(name, kind, genericParams, getMostUnderType(), passage, isConstant, isVolatile);
+        final CppType cppType = new CppType(name, kind, genericParams, getMostUnderType(), passage, isConstant, isVolatile, outerType);
         cppType.setNamespaces(getNamespaces());
 
         // If this is native type, mark compiled type as native too
@@ -443,6 +459,8 @@ public class CppType implements CtLeaf
             if (isGeneric())
                 hashes.addAll(getFlatGenericArguments());
 
+            hashes.add(outerType);
+
             // AbstractList's
             hash = hashes.hashCode();
         }
@@ -467,9 +485,21 @@ public class CppType implements CtLeaf
                     Objects.equals(namespaces, otherType.namespaces) &&
                     Objects.equals(nativeClass, otherType.nativeClass) &&
                     Objects.equals(passage, otherType.passage) &&
+                    Objects.equals(outerType, otherType.outerType) &&
                     (!isGeneric() || Objects.equals(getFlatGenericArguments(), otherType.getFlatGenericArguments()));
         }
 
         return false;
     }
+
+	public CppType makeNested(final CppType outerType) {
+		final CppType cppType = new CppType(name, kind, genericParams, getMostUnderType(), passage, isConstant, isVolatile, outerType);
+        cppType.setNamespaces(getNamespaces());
+
+        // If this is native type, mark compiled type as native too
+        if (hasNativeType())
+            cppType.markAsNative(nativeClass);
+
+        return cppType;
+	}
 }

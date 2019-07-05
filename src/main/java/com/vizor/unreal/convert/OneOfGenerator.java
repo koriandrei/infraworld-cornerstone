@@ -140,7 +140,7 @@ class OneOfGenerator {
                     , "\t\tcase " + enumEntryName + ":"
                     , "\t\t{"
                     , "\t\t\tTValueBox<" + ueProvider.get(fieldElement.type()) + "> Item;"
-                    , "\t\t\tensure(UeOneOf.TryGet(Item.Value, " + enumEntryName +  ");"
+                    , "\t\t\tensure(UeOneOf.TryGet(Item.Value, " + enumEntryName +  "));"
                     , "\t\t\t" + CastGenerator.generateUeToProtoCast(
                             new CppField(ueProvider.get(fieldElement.type()), "Value"), 
                             ProtoProcessor.ParseField(protoProvider, fieldElement)
@@ -222,7 +222,7 @@ class OneOfGenerator {
 
             createFunction.setBody(
                     String.join(System.lineSeparator(), "return TTypeIdentified<" + oneOfStruct.oneOfCaseEnum.getType().getName() + ">::Create<" + oneOfStruct.oneOfUnrealStruct.getType().getName() + ", " + enumEntryName + ">("
-                            + "OneOfValue, " + enumEntryName + ");"));
+                            + "OneOfValue);"));
 
             CppFunction getFunction = new CppFunction("TryGet" + generateArgumentName(fieldElement),
                     CppType.plain("bool", Kind.Primitive), Arrays.asList(selfStructArgument,

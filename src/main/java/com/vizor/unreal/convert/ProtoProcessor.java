@@ -258,7 +258,7 @@ class ProtoProcessor implements Runnable
 
         headerIncludes.add(new CppInclude(Header, className + ".generated.h"));
 
-        
+
         final Config config = Config.get();
 
         // TODO: Fix paths
@@ -304,8 +304,12 @@ class ProtoProcessor implements Runnable
             p.writeInlineComment("Structures:");
             unrealStructures.forEach(s -> s.accept(p).newLine());
 
+            p.pushResidence();
+
             p.writeInlineComment("Extras:");
             extraRecords.forEach(s -> s.accept(p).newLine());
+
+            p.popResidence();
 
             p.writeInlineComment("Forward class definitions (for delegates)");
             clients.forEach(c -> p.write("class ").write(c.getType().toString()).writeLine(";"));
@@ -355,19 +359,18 @@ class ProtoProcessor implements Runnable
 
         structFields.add(new CppField(oneOfCaseEnum.getType(), "OneOfCase"));
 
+        final CppType identifiedType = CppType.wildcardGeneric("TTypeIdentified", Kind.Struct, 1).makeGeneric(oneOfCaseEnum.getType());
+
         final CppClass oneOfStruct = new CppClass(
             oneOfType, 
             CppType.wildcardGeneric("TOneOf", Kind.Struct, fields.size()).makeGeneric(
                 oe.fields().stream().map((fe)->{
-                    return CppType.wildcardGeneric("TTypeIntegerPair", Kind.Struct, 2).makeGeneric(
+                    return CppType.wildcardGeneric("TTypeIdPair", Kind.Struct, 2).makeGeneric(
                         fields.get(oe.fields().indexOf(fe)).getType(), 
 
-                        // TODO: This must be an int template argument,
-                        // and not a type of int. Its value should be
-                        // fe.tag()
-                        CppType.plain("int", Kind.Primitive)); // fe.tag()
+                        CppType.plain(oneOfCaseEnum.getType().getName() + "::" + fe.name(), Kind.Primitive)).makeNested(identifiedType);
                 }).collect(Collectors.toList())
-                )
+                ).makeNested(identifiedType)
             ,
             structFields,
             new ArrayList<>()
