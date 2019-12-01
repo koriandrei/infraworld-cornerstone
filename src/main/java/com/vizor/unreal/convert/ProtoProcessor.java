@@ -19,6 +19,7 @@ import com.squareup.wire.schema.internal.parser.EnumConstantElement;
 import com.squareup.wire.schema.internal.parser.EnumElement;
 import com.squareup.wire.schema.internal.parser.FieldElement;
 import com.squareup.wire.schema.internal.parser.MessageElement;
+import com.squareup.wire.schema.internal.parser.OneOfElement;
 import com.squareup.wire.schema.internal.parser.ProtoFileElement;
 import com.squareup.wire.schema.internal.parser.ServiceElement;
 import com.squareup.wire.schema.internal.parser.TypeElement;
@@ -46,6 +47,8 @@ import org.apache.logging.log4j.Logger;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.squareup.wire.schema.Field.Label.REPEATED;
 import static com.vizor.unreal.tree.CppAnnotation.BlueprintReadWrite;
@@ -57,6 +60,7 @@ import static com.vizor.unreal.tree.CppRecord.Residence.Header;
 import static com.vizor.unreal.tree.CppType.Kind.Enum;
 import static com.vizor.unreal.tree.CppType.Kind.Struct;
 import static com.vizor.unreal.tree.CppType.plain;
+import static com.vizor.unreal.tree.CppType.wildcardGeneric;
 import static com.vizor.unreal.util.Misc.reorder;
 import static com.vizor.unreal.util.Misc.snakeCaseToCamelCase;
 import static com.vizor.unreal.util.Misc.stringIsNullOrEmpty;
@@ -71,8 +75,7 @@ import static java.util.stream.Collectors.toMap;
 import static org.apache.commons.io.FilenameUtils.removeExtension;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-class ProtoProcessor implements Runnable
-{
+class ProtoProcessor implements Runnable {
     private static final Logger log = getLogger(ProtoProcessor.class);
 
     private final ProtoFileElement parse;
@@ -88,13 +91,8 @@ class ProtoProcessor implements Runnable
     private final TypesProvider ueProvider = new UnrealTypesProvider();
     private final TypesProvider protoProvider = new ProtoTypesProvider();
 
-    ProtoProcessor(
-        final ProtoFileElement parse,
-        final Path pathToProto,
-        final Path pathToConverted,
-        final String moduleName
-    )
-    {
+    ProtoProcessor(final ProtoFileElement parse, final Path pathToProto, final Path pathToConverted,
+            final String moduleName) {
         this.parse = requireNonNull(parse);
         this.pathToProto = requireNonNull(pathToProto);
         this.pathToConverted = requireNonNull(pathToConverted);
@@ -104,33 +102,31 @@ class ProtoProcessor implements Runnable
 
         this.className = snakeCaseToCamelCase(wrapperName);
 
-//        if (parse.packageName() == null)
-//            throw new RuntimeException("package filed in proto file is required for cornerstone");
+        // if (parse.packageName() == null)
+        // throw new RuntimeException("package filed in proto file is required for
+        // cornerstone");
 
         this.packageNamespace = new CppNamespace(parse.packageName());
     }
 
     @Override
-    public void run()
-    {
+    public void run() {
         final List<ServiceElement> services = parse.services();
 
-        for (final TypeElement t : parse.types())
-        {
+        for (final TypeElement t : parse.types()) {
             ueProvider.register(t.name(), ueNamedType(className, t));
             protoProvider.register(t.name(), cppNamedType(t));
         }
 
         final List<Tuple<CppStruct, CppStruct>> castAssociations = new ArrayList<>();
+        final List<Tuple<Tuple<MessageElement, OneOfElement>, CppStruct>> oneOfAssociations = new ArrayList<>();
         final List<CppStruct> unrealStructures = new ArrayList<>();
 
         final List<CppEnum> ueEnums = new ArrayList<>();
 
         // At this moment, we have all types registered in both type providers
-        for (final TypeElement s : parse.types())
-        {
-            if (s instanceof MessageElement)
-            {
+        for (final TypeElement s : parse.types()) {
+            if (s instanceof MessageElement) {
                 final MessageElement messageElement = (MessageElement) s;
 
                 final CppStruct ueStruct = extractStruct(ueProvider, messageElement);
@@ -140,15 +136,25 @@ class ProtoProcessor implements Runnable
 
                 castAssociations.add(of(protoStruct, ueStruct));
                 unrealStructures.add(ueStruct);
-            }
-            else if (s instanceof EnumElement)
-            {
+
+                for (final OneOfElement oneOf : messageElement.oneOfs()) {
+                    oneOfAssociations.add(of(of(messageElement, oneOf), protoStruct));
+                }
+
+            } else if (s instanceof EnumElement) {
                 ueEnums.add(extractEnum(ueProvider, (EnumElement) s));
-            }
-            else
-            {
+            } else {
                 throw new RuntimeException("Unknown type: '" + s.getClass().getName() + "'");
             }
+        }
+
+        for (final Tuple<Tuple<MessageElement, OneOfElement>, CppStruct> oneOfAssociation : oneOfAssociations) {
+            final Tuple<CppStruct, CppEnum> generatedOneOfStructAndCase = extractOneOf2(ueProvider,
+                    oneOfAssociation.first().first(), oneOfAssociation.first().second(), oneOfAssociation.second());
+            final CppStruct generatedOneOfStruct = generatedOneOfStructAndCase.first();
+            unrealStructures.add(generatedOneOfStruct);
+            castAssociations.add(of(oneOfAssociation.second(), generatedOneOfStruct));
+            ueEnums.add(generatedOneOfStructAndCase.second());
         }
 
         // Topologically sort structures
@@ -161,9 +167,8 @@ class ProtoProcessor implements Runnable
 
         final CppNamespace casts = new CastGenerator().genCasts(castAssociations);
 
-        log.debug("Found structures (sorted): {}", () ->
-            unrealStructures.stream().map(s -> s.getType().getName()).collect(joining(", ", "[", "]")
-        ));
+        log.debug("Found structures (sorted): {}",
+                () -> unrealStructures.stream().map(s -> s.getType().getName()).collect(joining(", ", "[", "]")));
 
         // Generate RPC workers
         final ClientWorkerGenerator clientWorkerGenerator = new ClientWorkerGenerator(services, ueProvider, parse);
@@ -173,8 +178,7 @@ class ProtoProcessor implements Runnable
         final List<CppClass> clients = new ArrayList<>(services.size());
         final List<CppDelegate> dispatchers = new ArrayList<>(services.size());
 
-        for (int i = 0; i < services.size(); i++)
-        {
+        for (int i = 0; i < services.size(); i++) {
             final ServiceElement service = services.get(i);
             final CppClass worker = workers.get(i);
 
@@ -192,45 +196,37 @@ class ProtoProcessor implements Runnable
         final boolean ignore = get(outDirPath).toFile().mkdirs();
 
         final List<CppInclude> headerIncludes = asList(
-            // header
-            new CppInclude(Header, "CoreMinimal.h"),
-            new CppInclude(Header, "Conduit.h"),
-            new CppInclude(Header, "GenUtils.h"),
-            new CppInclude(Header, "RpcClient.h"),
-            new CppInclude(Header, className + ".generated.h")
-        );
+                // header
+                new CppInclude(Header, "CoreMinimal.h"), new CppInclude(Header, "Conduit.h"),
+                new CppInclude(Header, "GenUtils.h"), new CppInclude(Header, "RpcClient.h"),
+                new CppInclude(Header, className + ".generated.h"));
 
         final Config config = Config.get();
 
         // TODO: Fix paths
-        final String generatedIncludeName = join("/", config.getWrappersPath(),
-                removeExtension(pathToProtoStr), wrapperName);
+        final String generatedIncludeName = join("/", config.getWrappersPath(), removeExtension(pathToProtoStr),
+                wrapperName);
 
         // code. mutable to allow
-        final List<CppRecord> cppIncludes = new ArrayList<>(asList(
-            new CppInclude(Cpp, className + ".h"),
-            new CppInclude(Cpp, "RpcClientWorker.h"),
-            new CppInclude(Cpp, "CastUtils.h"),
+        final List<CppRecord> cppIncludes = new ArrayList<>(asList(new CppInclude(Cpp, className + ".h"),
+                new CppInclude(Cpp, "RpcClientWorker.h"), new CppInclude(Cpp, "CastUtils.h"),
 
-            new CppInclude(Cpp, "GrpcIncludesBegin.h"),
+                new CppInclude(Cpp, "GrpcIncludesBegin.h"),
 
-            new CppInclude(Cpp, "grpc/support/log.h", true),
-            new CppInclude(Cpp, "grpc++/channel.h", true),
+                new CppInclude(Cpp, "grpc/support/log.h", true), new CppInclude(Cpp, "grpc++/channel.h", true),
 
-            new CppInclude(Cpp, generatedIncludeName + ".pb.hpp", false),
-            new CppInclude(Cpp, generatedIncludeName + ".grpc.pb.hpp", false),
-            new CppInclude(Cpp, "ChannelProvider.h", false),
+                new CppInclude(Cpp, generatedIncludeName + ".pb.hpp", false),
+                new CppInclude(Cpp, generatedIncludeName + ".grpc.pb.hpp", false),
+                new CppInclude(Cpp, "ChannelProvider.h", false),
 
-            new CppInclude(Cpp, "GrpcIncludesEnd.h")
-        ));
+                new CppInclude(Cpp, "GrpcIncludesEnd.h")));
 
         if (!stringIsNullOrEmpty(config.getPrecompiledHeader()))
             cppIncludes.add(0, new CppInclude(Cpp, config.getPrecompiledHeader(), false));
 
         final Path outFilePath = get(outDirPath, className);
 
-        try (final CppPrinter p = new CppPrinter(outFilePath, moduleName.toUpperCase()))
-        {
+        try (final CppPrinter p = new CppPrinter(outFilePath, moduleName.toUpperCase())) {
             headerIncludes.forEach(i -> i.accept(p));
             p.newLine();
 
@@ -260,6 +256,41 @@ class ProtoProcessor implements Runnable
 
             clients.forEach(w -> w.accept(p).newLine());
         }
+    }
+
+    private Tuple<CppStruct, CppEnum> extractOneOf2(final TypesProvider ueProvider, final MessageElement messageElement,
+            final OneOfElement oneOfElement, final CppStruct protoStruct) {
+        final CppType oneOfStructType = ueProvider.get(generateProtoName(messageElement, oneOfElement));
+
+        final CppType caseType = ueProvider.get(generateProtoNameCase(messageElement, oneOfElement));
+
+        final CppEnum caseEnum = new CppEnum(caseType, createElements(caseType, oneOfElement));
+
+        final CppType oneOfImplType = createOneOfImplType(ueProvider, messageElement, oneOfElement);
+        final CppField oneOfField = new CppField(oneOfImplType, "OneOf");
+        final List<CppField> fields = asList(oneOfField);
+
+        final CppStruct unrealOneofStruct = new CppStruct(oneOfStructType, fields);
+
+        return of(unrealOneofStruct, caseEnum);
+    }
+
+    private Map<String, Integer> createElements(CppType caseType, OneOfElement oneOfElement) {
+        return oneOfElement.fields().stream().collect(toMap((fe) -> fe.name(), (fe)-> fe.tag()));
+    }
+
+    private CppType createOneOfImplType(final TypesProvider ueProvider, final MessageElement messageElement,
+            final OneOfElement oneOfElement) {
+        final CppType caseEnumType = ueProvider.get(generateProtoNameCase(messageElement, oneOfElement));
+        
+        final String possibleCases = String.join(", ", oneOfElement.fields().stream().map((fe) -> {
+            return caseEnumType.getName() + "::" + fe.name();
+        }).collect(Collectors.toList()));
+        
+        // final String typeName = String.format("TOneOfHelper<{0}>::TOneOfType<{1}>", caseEnumName, possibleCases);
+        final String typeName = "TOneOfWrapper<" + caseEnumType.getName() + ">::TOneOfType<" + possibleCases + ">";
+
+        return plain(typeName, Struct);
     }
 
     private CppStruct extractStruct(final TypesProvider provider, final MessageElement me)
@@ -299,6 +330,21 @@ class ProtoProcessor implements Runnable
             fields.add(field);
         }
 
+        for (final OneOfElement el : me.oneOfs())
+        {
+            final CppType oneOfType = extractOneOf(provider, me, el);
+            
+            final CppField field = new CppField(oneOfType, provider.fixFieldName(el.name(), /*isBoolean =*/ false));
+
+            final String sourceDoc = el.documentation();
+
+            if (!sourceDoc.isEmpty())
+                field.javaDoc.set(sourceDoc);
+
+            field.addAnnotation(fieldAnnotations);
+            fields.add(field);
+        }
+
         final CppStruct struct = new CppStruct(type, fields);
 
         struct.addAnnotation(DisplayName, className + " " + me.name());
@@ -310,6 +356,23 @@ class ProtoProcessor implements Runnable
 
         struct.setResidence(Header);
         return struct;
+    }
+
+    private CppType extractOneOf(final TypesProvider provider,final  MessageElement me,final  OneOfElement el) {
+        final String oneOfName = generateProtoName(me, el);
+        final CppType oneOfType = plain("F" + oneOfName, Struct);
+        final CppType oneOfCaseType = plain("E" + oneOfName + "_Case", Enum);
+        provider.register(oneOfName, oneOfType);
+        provider.register(generateProtoNameCase(me, el), oneOfCaseType);
+        return oneOfType;
+    }
+
+    private String generateProtoName(final MessageElement me, final OneOfElement el) {
+        return me.name() + "_" + el.name();
+    }
+
+    private String generateProtoNameCase(final MessageElement me, final OneOfElement el) {
+        return me.name() + "_" + el.name() + "_case";
     }
 
     private CppEnum extractEnum(final TypesProvider provider, final EnumElement ee)
