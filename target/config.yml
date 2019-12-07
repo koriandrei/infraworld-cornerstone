@@ -6,11 +6,11 @@
 
 #
 # A path, where *.proto source files resides.
-src_path: '/home/dmitrii/Source/protobuild/proto/'
+src_path: '/home/dmitrii/Source/infraworld-dev/protobuild/proto/'
 
 #
 # A path, where generated C++ classes should be placed.
-dst_path: '/home/dmitrii/Source/protobuild/gen/'
+dst_path: '/home/dmitrii/Source/infraworld-dev/protobuild/gen/'
 
 #
 # Name of the module (Needed to compute API, like MYMODULE_API)
