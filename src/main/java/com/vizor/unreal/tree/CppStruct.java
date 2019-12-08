@@ -18,6 +18,8 @@ package com.vizor.unreal.tree;
 import com.vizor.unreal.writer.CppPrinter;
 
 import java.util.ArrayList;
+import java.util.Dictionary;
+import java.util.Hashtable;
 import java.util.List;
 
 import static java.util.Collections.unmodifiableList;
@@ -27,6 +29,7 @@ public class CppStruct extends CppRecord
     private final CppType type;
     private final List<CppType> friendDeclarations = new ArrayList<>();
     private final List<CppField> fields = new ArrayList<>();
+    private final Dictionary<String, CppType> typedefs = new Hashtable<>();
 
     public final CppJavaDoc javaDoc = new CppJavaDoc();
 
@@ -56,6 +59,11 @@ public class CppStruct extends CppRecord
         return unmodifiableList(friendDeclarations);
     }
 
+    public final Dictionary<String, CppType> getTypedefs()
+    {
+        return typedefs;
+    }
+
     @Override
     public CppPrinter accept(CppPrinter printer)
     {
@@ -75,4 +83,8 @@ public class CppStruct extends CppRecord
     {
         return type.toString();
     }
+
+	public void addTypedef(String typedefName, CppType type) {
+        typedefs.put(typedefName, type);
+	}
 }

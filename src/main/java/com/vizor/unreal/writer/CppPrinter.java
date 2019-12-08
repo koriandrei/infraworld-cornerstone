@@ -38,6 +38,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Dictionary;
+import java.util.Enumeration;
 import java.util.function.Supplier;
 
 import static com.vizor.unreal.tree.CppRecord.Residence.Header;
@@ -188,6 +190,7 @@ public class CppPrinter implements AutoCloseable
         // Write namespaces (if have some)
         type.getNamespaces().forEach(ns -> write(ns.getName()).write("::"));
 
+
         // Write type name
         write(type.getName());
 
@@ -236,6 +239,17 @@ public class CppPrinter implements AutoCloseable
         if (struct.isAnnotationsEnabled())
             decoratorWriter.writeAnnotations(this, struct);
 
+
+        if (structType.isSpecialized())
+        {
+            write("template <");
+            for (final CppRecord specializationArg : structType.getSpecializationArgs())
+            {
+                specializationArg.accept(this);
+            }
+            write(">");
+        }
+
         write(structType.getKind().name().toLowerCase()).write(" ");
 
         // Add API if has some
@@ -259,6 +273,25 @@ public class CppPrinter implements AutoCloseable
         {
             friendTypes.forEach(f -> write("friend ").write(f.getKind().getCppKindName()).writeLine(";"));
             newLine();
+        }
+
+
+        if (struct.getTypedefs() != null)
+        {
+            for (Enumeration<String> typedefName = struct.getTypedefs().keys(); typedefName.hasMoreElements();)
+            {
+                
+                final String key = typedefName.nextElement();
+                
+                final CppType definedType = struct.getTypedefs().get(key);
+                System.out.println("processing typedef " + key + "with type " + definedType.getName());
+                
+                write("typedef ");
+                definedType.accept(this);
+                write(" ");
+                write(key);
+                writeLine(";");
+            }
         }
 
         if (!struct.getFields().isEmpty())

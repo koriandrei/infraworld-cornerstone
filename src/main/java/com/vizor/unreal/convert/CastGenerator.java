@@ -85,6 +85,13 @@ class CastGenerator
             final CppStruct cppStruct = t.first();
             final CppStruct ueStruct = t.second();
 
+            if (ueStruct.getType().getName().toLowerCase().contains("oneof"))
+            {
+                return;
+            }
+
+            System.out.println(ueStruct.getType().getName());
+
             ns.add(generateCast(cppStruct, ueStruct, this::generateProtoToUeCast));
             ns.add(generateCast(ueStruct, cppStruct, this::generateUeToProtoCast));
         });

@@ -118,6 +118,8 @@ public class CppType implements CtLeaf
     /** The hash code is being cached, because it is kinda hard to calculate **/
     private int hash;
 
+    private List<CppRecord> specializedParams;
+
     private CppType(String name, Kind kind)
     {
         this(name, kind, emptyList());
@@ -274,7 +276,18 @@ public class CppType implements CtLeaf
                                final boolean isConstant,
                                final boolean isVolatile)
     {
+        return makeHybrid(genericParams, passage, isConstant, isVolatile, null);
+    }
+
+
+    private CppType makeHybrid(final List<CppType> genericParams,
+                               final Passage passage,
+                               final boolean isConstant,
+                               final boolean isVolatile,
+                               final List<CppRecord> specializedParams)
+    {
         final CppType cppType = new CppType(name, kind, genericParams, getMostUnderType(), passage, isConstant, isVolatile);
+        cppType.specializedParams = specializedParams;
         cppType.setNamespaces(getNamespaces());
 
         // If this is native type, mark compiled type as native too
@@ -395,6 +408,11 @@ public class CppType implements CtLeaf
         return new CppType(name, kind);
     }
 
+    public CppType makeSpecialization()
+    {
+        return makeHybrid(genericParams, passage, isConstant, isVolatile, new ArrayList<>());
+    }
+
     @Override
     public CppPrinter accept(final CppPrinter printer)
     {
@@ -467,9 +485,18 @@ public class CppType implements CtLeaf
                     Objects.equals(namespaces, otherType.namespaces) &&
                     Objects.equals(nativeClass, otherType.nativeClass) &&
                     Objects.equals(passage, otherType.passage) &&
-                    (!isGeneric() || Objects.equals(getFlatGenericArguments(), otherType.getFlatGenericArguments()));
+                    (!isGeneric() || Objects.equals(getFlatGenericArguments(), otherType.getFlatGenericArguments())) &&
+                    Objects.equals(specializedParams, otherType.specializedParams);
         }
 
         return false;
     }
+
+	public List<CppRecord> getSpecializationArgs() {
+		return specializedParams;
+	}
+
+	public boolean isSpecialized() {
+		return specializedParams != null;
+	}
 }

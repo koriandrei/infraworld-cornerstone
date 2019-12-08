@@ -121,6 +121,7 @@ class ProtoProcessor implements Runnable {
         final List<Tuple<CppStruct, CppStruct>> castAssociations = new ArrayList<>();
         final List<Tuple<Tuple<MessageElement, OneOfElement>, CppStruct>> oneOfAssociations = new ArrayList<>();
         final List<CppStruct> unrealStructures = new ArrayList<>();
+        final List<CppStruct> unrealAdditionalStructures = new ArrayList<>();
 
         final List<CppEnum> ueEnums = new ArrayList<>();
 
@@ -155,6 +156,15 @@ class ProtoProcessor implements Runnable {
             unrealStructures.add(generatedOneOfStruct);
             castAssociations.add(of(oneOfAssociation.second(), generatedOneOfStruct));
             ueEnums.add(generatedOneOfStructAndCase.second());
+
+            for (final FieldElement fe : oneOfAssociation.first().second().fields())
+            {
+                final String args = "<" + generatedOneOfStructAndCase.second().getType().getName() + ", " + generatedOneOfStructAndCase.second().getType().getName() + "::" + fe.name() + ">";
+                final CppStruct caseToTypeAssociation = new CppStruct(CppType.plain("TOneOfCaseHelper" + args, Struct).makeSpecialization(),new ArrayList<>());
+                caseToTypeAssociation.addTypedef("BoundType", ueProvider.get(fe.type()));
+                caseToTypeAssociation.enableAnnotations(false);
+                unrealAdditionalStructures.add(caseToTypeAssociation);
+            }
         }
 
         // Topologically sort structures
@@ -164,6 +174,8 @@ class ProtoProcessor implements Runnable {
         // Then reorder data types
         reorder(unrealStructures, indices);
         reorder(castAssociations, indices);
+
+        unrealStructures.addAll(0, unrealAdditionalStructures);
 
         final CppNamespace casts = new CastGenerator().genCasts(castAssociations);
 
