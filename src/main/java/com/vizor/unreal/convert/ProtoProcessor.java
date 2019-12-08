@@ -32,6 +32,7 @@ import com.vizor.unreal.tree.CppClass;
 import com.vizor.unreal.tree.CppDelegate;
 import com.vizor.unreal.tree.CppEnum;
 import com.vizor.unreal.tree.CppField;
+import com.vizor.unreal.tree.CppFunction;
 import com.vizor.unreal.tree.CppNamespace;
 import com.vizor.unreal.tree.CppRecord;
 import com.vizor.unreal.tree.CppStruct;
@@ -119,7 +120,7 @@ class ProtoProcessor implements Runnable {
         }
 
         final List<Tuple<CppStruct, CppStruct>> castAssociations = new ArrayList<>();
-        final List<Tuple<Tuple<MessageElement, OneOfElement>, CppStruct>> oneOfAssociations = new ArrayList<>();
+        final List<OneOfGen> oneOfAssociations = new ArrayList<>();
         final List<CppStruct> unrealStructures = new ArrayList<>();
         final List<CppStruct> unrealAdditionalStructures = new ArrayList<>();
 
@@ -139,7 +140,7 @@ class ProtoProcessor implements Runnable {
                 unrealStructures.add(ueStruct);
 
                 for (final OneOfElement oneOf : messageElement.oneOfs()) {
-                    oneOfAssociations.add(of(of(messageElement, oneOf), protoStruct));
+                    oneOfAssociations.add(new OneOfGen(messageElement, oneOf, protoStruct));
                 }
 
             } else if (s instanceof EnumElement) {
@@ -149,17 +150,18 @@ class ProtoProcessor implements Runnable {
             }
         }
 
-        for (final Tuple<Tuple<MessageElement, OneOfElement>, CppStruct> oneOfAssociation : oneOfAssociations) {
-            final Tuple<CppStruct, CppEnum> generatedOneOfStructAndCase = extractOneOf2(ueProvider,
-                    oneOfAssociation.first().first(), oneOfAssociation.first().second(), oneOfAssociation.second());
-            final CppStruct generatedOneOfStruct = generatedOneOfStructAndCase.first();
+        for (final OneOfGen oneOfAssociation : oneOfAssociations) {
+            final OneOfGen generatedOneOfStructAndCase = extractOneOf2(ueProvider,
+                    oneOfAssociation);
+            final CppStruct generatedOneOfStruct = generatedOneOfStructAndCase.ueStruct;
             unrealStructures.add(generatedOneOfStruct);
-            castAssociations.add(of(oneOfAssociation.second(), generatedOneOfStruct));
-            ueEnums.add(generatedOneOfStructAndCase.second());
+            castAssociations.add(of(oneOfAssociation.protoStruct, generatedOneOfStruct));
+            ueEnums.add(generatedOneOfStructAndCase.ueCaseEnum);
 
-            for (final FieldElement fe : oneOfAssociation.first().second().fields())
+            for (final FieldElement fe : oneOfAssociation.oneOfElement.fields())
             {
-                final String args = "<" + generatedOneOfStructAndCase.second().getType().getName() + ", " + generatedOneOfStructAndCase.second().getType().getName() + "::" + fe.name() + ">";
+                final String caseEnumName = generatedOneOfStructAndCase.ueCaseEnum.getType().getName();
+                final String args = "<" + caseEnumName + ", " + caseEnumName + "::" + fe.name() + ">";
                 final CppStruct caseToTypeAssociation = new CppStruct(CppType.plain("TOneOfCaseHelper" + args, Struct).makeSpecialization(),new ArrayList<>());
                 caseToTypeAssociation.addTypedef("BoundType", ueProvider.get(fe.type()));
                 caseToTypeAssociation.enableAnnotations(false);
@@ -178,6 +180,7 @@ class ProtoProcessor implements Runnable {
         unrealStructures.addAll(0, unrealAdditionalStructures);
 
         final CppNamespace casts = new CastGenerator().genCasts(castAssociations);
+
 
         log.debug("Found structures (sorted): {}",
                 () -> unrealStructures.stream().map(s -> s.getType().getName()).collect(joining(", ", "[", "]")));
@@ -270,8 +273,36 @@ class ProtoProcessor implements Runnable {
         }
     }
 
-    private Tuple<CppStruct, CppEnum> extractOneOf2(final TypesProvider ueProvider, final MessageElement messageElement,
-            final OneOfElement oneOfElement, final CppStruct protoStruct) {
+    class OneOfGen
+    {
+        
+        public MessageElement messageElement;
+        public OneOfElement oneOfElement;
+        public CppStruct protoStruct;
+
+        public OneOfGen(MessageElement messageElement, OneOfElement oneOf, CppStruct protoStruct) {
+this.messageElement = messageElement;
+this.oneOfElement = oneOf;
+this.protoStruct = protoStruct;
+        }
+
+        public void Specify(CppEnum ueCaseEnum, CppStruct ueStruct)
+{
+    this.ueCaseEnum = ueCaseEnum;
+    this.ueStruct = ueStruct;
+}
+        public void Specify(List<CppFunction> castFunctions)
+        {
+this.castFunctions = castFunctions;
+        }
+public CppEnum ueCaseEnum;
+public CppStruct ueStruct;
+public List<CppFunction> castFunctions = new ArrayList<>(); 
+    }
+
+    private OneOfGen extractOneOf2(final TypesProvider ueProvider, OneOfGen gen) {
+        final MessageElement messageElement = gen.messageElement;
+        final OneOfElement oneOfElement = gen.oneOfElement;
         final CppType oneOfStructType = ueProvider.get(generateProtoName(messageElement, oneOfElement));
 
         final CppType caseType = ueProvider.get(generateProtoNameCase(messageElement, oneOfElement));
@@ -280,11 +311,14 @@ class ProtoProcessor implements Runnable {
 
         final CppType oneOfImplType = createOneOfImplType(ueProvider, messageElement, oneOfElement);
         final CppField oneOfField = new CppField(oneOfImplType, "OneOf");
+        oneOfField.enableAnnotations(false);;
         final List<CppField> fields = asList(oneOfField);
 
         final CppStruct unrealOneofStruct = new CppStruct(oneOfStructType, fields);
 
-        return of(unrealOneofStruct, caseEnum);
+gen.Specify(caseEnum, unrealOneofStruct);
+
+        return gen;
     }
 
     private Map<String, Integer> createElements(CppType caseType, OneOfElement oneOfElement) {

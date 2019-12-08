@@ -28,6 +28,7 @@ import com.vizor.unreal.tree.CppRecord;
 import com.vizor.unreal.tree.CppRecordContainer;
 import com.vizor.unreal.tree.CppStruct;
 import com.vizor.unreal.tree.CppType;
+import com.vizor.unreal.tree.CppType.Kind;
 import com.vizor.unreal.tree.preprocessor.CppInclude;
 import com.vizor.unreal.tree.preprocessor.CppMacroIf;
 import com.vizor.unreal.tree.preprocessor.CppPragma;
@@ -287,6 +288,15 @@ public class CppPrinter implements AutoCloseable
                 System.out.println("processing typedef " + key + "with type " + definedType.getName());
                 
                 write("typedef ");
+                if (definedType.isKindOf(Kind.Struct))
+                {
+                    write("struct ");
+                }
+                if (definedType.isKindOf(Kind.Class))
+                {
+                    write("class ");
+
+                }
                 definedType.accept(this);
                 write(" ");
                 write(key);
