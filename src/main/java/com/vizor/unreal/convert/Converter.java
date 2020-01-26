@@ -57,6 +57,7 @@ public class Converter
 
     public void convert(final Path srcPath, final List<Tuple<Path, Path>> paths)
     {
+		malformed
         Stream<Tuple<Path, Path>> pathStream = paths.stream();
 
         // Mark
