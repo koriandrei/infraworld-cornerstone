@@ -353,6 +353,7 @@ public final class Config
                         configField.set(this, cliValue);
                     }
                 }
+                
                 catch (IllegalAccessException e)
                 {
                     throw new RuntimeException(e);
